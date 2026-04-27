@@ -1,0 +1,2134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hivemind</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#1a1d27;--bg3:#22263a;--bg4:#2a2f47;
+  --border:#2e3354;--border2:#3d4470;
+  --text:#e8eaf6;--text2:#9fa8c7;--text3:#5c6490;
+  --accent:#6366f1;--accent2:#818cf8;--accent-bg:#1e1f3a;
+  --green:#10b981;--green-bg:#0d2a1f;--green-border:#0d3a2a;
+  --red:#ef4444;--red-bg:#2a1010;--red-border:#3a1010;
+  --amber:#f59e0b;--amber-bg:#2a1f0a;--amber-border:#3d2e0a;
+  --purple:#a855f7;--purple-bg:#1f0f2a;
+  --radius:8px;--radius-lg:12px;--radius-xl:16px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:14px}
+#shell{display:flex;height:100vh}
+#sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.sidebar-logo{padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.logo-text{font-size:17px;font-weight:800;background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.project-badge{font-size:10px;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-group{margin-bottom:16px}
+.nav-group-title{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:4px 10px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.nav-group-title button{font-size:14px;background:none;border:none;color:var(--text3);cursor:pointer;padding:0 2px}
+.nav-group-title button:hover{color:var(--text)}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--radius);cursor:pointer;color:var(--text2);transition:all .15s;font-size:13px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--accent-bg);color:var(--accent2);border:1px solid #3d3f6e}
+.nav-item .ni{width:16px;text-align:center;font-size:13px;flex-shrink:0}
+.nav-item .nc{margin-left:auto;font-size:10px;background:var(--bg4);padding:1px 5px;border-radius:10px;color:var(--text3)}
+.nav-sub{padding-left:24px}
+.sidebar-bottom{padding:12px;border-top:1px solid var(--border);flex-shrink:0}
+.user-chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius);background:var(--bg3);cursor:pointer}
+.user-chip:hover{background:var(--bg4)}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent2);flex-shrink:0}
+.avatar-sm{width:22px;height:22px;font-size:10px}
+.user-meta{flex:1;min-width:0}
+.user-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-role{font-size:10px;color:var(--text3)}
+#topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;background:var(--bg2);flex-shrink:0}
+#topbar-title{font-size:15px;font-weight:600}
+#topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+#content{flex:1;overflow-y:auto;padding:24px}
+.btn{padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-size:13px;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--bg3)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#5558e8}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-xs{padding:2px 7px;font-size:11px}
+.btn-ghost{border-color:transparent}
+.btn-ghost:hover{border-color:var(--border)}
+.btn-danger{border-color:var(--red-border);color:var(--red)}
+.btn-danger:hover{background:var(--red-bg)}
+.btn-success{border-color:var(--green-border);color:var(--green)}
+.btn-success:hover{background:var(--green-bg)}
+input,select,textarea{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:8px 12px;font-size:13px;font-family:inherit;width:100%;outline:none;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px;line-height:1.6}
+select option{background:var(--bg3)}
+.form-group{margin-bottom:14px}
+.form-label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;font-weight:500}
+.form-hint{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px}
+.card-title{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.stat-value{font-size:26px;font-weight:700;line-height:1}
+.stat-label{font-size:11px;color:var(--text3);margin-top:4px}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:var(--bg3);cursor:pointer}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.badge-draft{background:var(--bg4);color:var(--text2)}
+.badge-in-progress{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.badge-review{background:var(--purple-bg);color:var(--purple)}
+.badge-done{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.badge-blocked{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.badge-accent{background:var(--accent-bg);color:var(--accent2);border:1px solid #3d3f6e}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.pipeline{display:flex;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.pipe-step{flex:1;text-align:center;padding:7px 4px;font-size:11px;border-right:1px solid var(--border);cursor:pointer;transition:all .15s;min-width:0}
+.pipe-step:last-child{border-right:none}
+.pipe-step .ps-name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.pipe-step .ps-dept{font-size:9px;opacity:.6;margin-top:1px}
+.pipe-step.done{background:var(--green-bg);color:var(--green)}
+.pipe-step.in-progress{background:var(--amber-bg);color:var(--amber)}
+.pipe-step.blocked{background:var(--red-bg);color:var(--red)}
+.pipe-step.pending{color:var(--text3)}
+.pipe-step.pending:hover{background:var(--bg3);color:var(--text2)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px)}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);width:580px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.modal-lg{width:860px}
+.modal-xl{width:1000px}
+.modal-hd{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:16px;font-weight:600}
+.modal-bd{padding:24px;overflow-y:auto;flex:1}
+.modal-ft{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+#entity-view{display:none;flex:1;overflow:hidden}
+#entity-view.on{display:flex}
+#ev-main{flex:1;overflow-y:auto;padding:24px}
+#ev-side{width:290px;border-left:1px solid var(--border);overflow-y:auto;padding:16px;background:var(--bg2);flex-shrink:0}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.sec-title{font-size:18px;font-weight:700}
+.fld-block{padding:14px 0;border-bottom:1px solid var(--border)}
+.fld-block:last-child{border-bottom:none}
+.fld-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.fld-desc{font-size:11px;color:var(--text3);font-style:italic;margin-bottom:6px}
+.fld-val{font-size:14px;color:var(--text);line-height:1.6}
+.loot-tbl{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:6px}
+.loot-hd{display:grid;grid-template-columns:1fr 70px 70px 80px 36px;background:var(--bg3);font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+.loot-hd span,.loot-row-g>*{padding:7px 10px}
+.loot-row-g{display:grid;grid-template-columns:1fr 70px 70px 80px 36px;border-top:1px solid var(--border);align-items:center;font-size:12px}
+.loot-row-g input,.loot-row-g select{padding:4px 8px;font-size:12px;border-radius:0;border:none;border-left:1px solid var(--border);background:transparent}
+/* FIELD EDITOR */
+.fe-row{display:grid;grid-template-columns:1.8fr 1.2fr 1.8fr 2fr auto;gap:6px;align-items:start;padding:8px;background:var(--bg3);border-radius:var(--radius);margin-bottom:6px;border:1px solid var(--border)}
+.fe-row input,.fe-row select{padding:5px 8px;font-size:12px}
+.fe-row textarea{padding:5px 8px;font-size:12px;min-height:52px}
+.fe-col{display:flex;flex-direction:column;gap:3px}
+.fe-col-label{font-size:10px;color:var(--text3);font-weight:500}
+.pipe-editor-row{display:grid;grid-template-columns:2fr 1.5fr auto;gap:6px;align-items:center;padding:6px 8px;background:var(--bg3);border-radius:var(--radius);margin-bottom:5px}
+.pipe-editor-row input,.pipe-editor-row select{padding:5px 8px;font-size:12px}
+.color-grid{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.cswatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0}
+.cswatch:hover,.cswatch.on{border-color:#fff;transform:scale(1.2)}
+.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+.cat-pill{padding:8px 6px;border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;text-align:center;transition:all .15s}
+.cat-pill:hover,.cat-pill.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent2)}
+.cat-pill .cp-icon{font-size:18px;margin-bottom:4px}
+.cat-pill .cp-name{font-size:11px;font-weight:500}
+.cat-pill .cp-desc{font-size:10px;color:var(--text3);margin-top:2px}
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty h3{font-size:15px;color:var(--text2);margin-bottom:6px}
+.cmt{padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px}
+.cmt-hd{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.cmt-author{font-size:12px;font-weight:600}
+.cmt-time{font-size:10px;color:var(--text3);margin-left:auto}
+.cmt-type-comment{background:var(--bg4);color:var(--text2)}
+.cmt-type-change_request{background:var(--amber-bg);color:var(--amber)}
+.cmt-type-limitation{background:var(--red-bg);color:var(--red)}
+.cmt-type-signoff{background:var(--green-bg);color:var(--green)}
+.invite-code{font-family:monospace;font-size:22px;font-weight:700;letter-spacing:4px;color:var(--accent2);background:var(--accent-bg);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 20px;text-align:center;cursor:pointer}
+.prog-bar{height:3px;background:var(--bg4);border-radius:10px;overflow:hidden;margin-top:5px}
+.prog-fill{height:100%;border-radius:10px;transition:width .3s}
+.elink{color:var(--accent2);border-bottom:1px dashed var(--accent2);cursor:pointer}
+.elink:hover{color:#fff;border-bottom-color:#fff}
+#auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999}
+.auth-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:40px;width:400px;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.auth-logo{text-align:center;margin-bottom:32px}
+.auth-logo h1{font-size:30px;font-weight:900;background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.auth-logo p{font-size:13px;color:var(--text3);margin-top:4px}
+.auth-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.auth-type-btn{padding:16px 12px;border:1px solid var(--border2);border-radius:var(--radius-lg);cursor:pointer;text-align:center;transition:all .2s;background:transparent}
+.auth-type-btn:hover,.auth-type-btn.on{border-color:var(--accent);background:var(--accent-bg)}
+.auth-type-btn .atb-icon{font-size:24px;margin-bottom:8px}
+.auth-type-btn .atb-label{font-size:13px;font-weight:600}
+.auth-type-btn .atb-desc{font-size:11px;color:var(--text3);margin-top:3px}
+.auth-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);padding:3px;margin-bottom:20px}
+.auth-tab{flex:1;text-align:center;padding:7px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s}
+.auth-tab.on{background:var(--accent);color:#fff}
+#hub-screen{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:9998;flex-direction:column}
+.hub-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:40px;width:580px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.project-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.project-card:hover{border-color:var(--accent);background:var(--bg4)}
+.project-icon{width:42px;height:42px;border-radius:var(--radius);background:var(--accent-bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+/* MECHANIC EDITOR BLOCKS */
+.mech-block{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.mech-block-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.param-row{display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:6px;align-items:center;margin-bottom:5px}
+.param-row input{padding:5px 8px;font-size:12px}
+/* SUBTYPE TREE */
+.type-tree-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius);margin-bottom:4px;border:1px solid var(--border)}
+.type-tree-child{margin-left:20px;border-left:2px solid var(--border2)}
+.type-tree-child .type-tree-item{border-left:none;border-radius:0 var(--radius) var(--radius) 0}
+hr{border:none;border-top:1px solid var(--border);margin:16px 0}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
+</style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo"><h1>🧠 Hivemind</h1><p>Game Production Platform</p></div>
+    <div class="auth-tabs">
+      <div class="auth-tab on" onclick="authTab('login')">Sign in</div>
+      <div class="auth-tab" onclick="authTab('register')">Register</div>
+    </div>
+    <div id="pane-login">
+      <div class="form-group"><label class="form-label">Username</label><input id="l-user" placeholder="Username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="form-group"><label class="form-label">Password</label><input id="l-pass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="doLogin()">Sign in</button>
+      <p id="l-err" style="color:var(--red);font-size:12px;margin-top:8px;text-align:center"></p>
+    </div>
+    <div id="pane-register" style="display:none">
+      <div class="form-group"><label class="form-label">Username</label><input id="r-user" placeholder="Choose a username"></div>
+      <div class="form-group"><label class="form-label">Password</label><input id="r-pass" type="password" placeholder="Choose a password"></div>
+      <div class="form-group">
+        <label class="form-label">I am a...</label>
+        <div class="auth-type-grid">
+          <div class="auth-type-btn on" id="at-director" onclick="selectAccountType('director')">
+            <div class="atb-icon">👑</div><div class="atb-label">Game Director</div><div class="atb-desc">I create & manage projects</div>
+          </div>
+          <div class="auth-type-btn" id="at-member" onclick="selectAccountType('member')">
+            <div class="atb-icon">🎮</div><div class="atb-label">Team Member</div><div class="atb-desc">I join an existing project</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doRegister()">Create Account</button>
+      <p id="r-err" style="color:var(--red);font-size:12px;margin-top:8px;text-align:center"></p>
+    </div>
+  </div>
+</div>
+
+<div id="hub-screen">
+  <div class="hub-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+      <div><h2 style="font-size:20px;font-weight:700">Your Projects</h2><p style="font-size:13px;color:var(--text3);margin-top:2px" id="hub-welcome"></p></div>
+      <div style="display:flex;gap:8px" id="hub-actions"></div>
+    </div>
+    <div id="hub-projects"></div>
+    <div id="hub-join" style="display:none;margin-top:20px;border-top:1px solid var(--border);padding-top:20px">
+      <div class="form-group">
+        <label class="form-label">Enter Invite Code</label>
+        <div style="display:flex;gap:8px">
+          <input id="join-code" placeholder="NOVA-1234" style="font-family:monospace;letter-spacing:2px;text-transform:uppercase">
+          <button class="btn btn-primary" onclick="joinProject()">Join</button>
+        </div>
+        <p id="join-err" style="color:var(--red);font-size:12px;margin-top:6px"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="shell" style="display:none">
+  <div id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-text">🧠 Hivemind</div>
+      <div class="project-badge" id="sb-project-name">No project</div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-title">Overview</div>
+        <button class="nav-item" data-page="dashboard" onclick="goPage('dashboard')"><span class="ni">📊</span> Dashboard</button>
+        <button class="nav-item" data-page="entities" onclick="goPage('entities')"><span class="ni">🗃</span> All Entities <span class="nc" id="nc-all">0</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Types <button onclick="openCreateType()">＋</button></div>
+        <div id="sb-types"></div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Design</div>
+        <button class="nav-item" data-page="schema" onclick="goPage('schema')"><span class="ni">⚙️</span> Schema Studio</button>
+        <button class="nav-item" data-page="tags" onclick="goPage('tags')"><span class="ni">🏷</span> Tags & Components</button>
+        <button class="nav-item" data-page="pipelines" onclick="goPage('pipelines')"><span class="ni">🔧</span> Pipeline Templates</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Project</div>
+        <button class="nav-item" data-page="my-tasks" onclick="goPage('my-tasks')"><span class="ni">✅</span> My Tasks <span class="nc" id="nc-tasks">0</span></button>
+        <button class="nav-item" data-page="review" onclick="goPage('review')"><span class="ni">🔍</span> Review Queue <span class="nc" id="nc-review">0</span></button>
+        <button class="nav-item" data-page="team" onclick="goPage('team')"><span class="ni">👥</span> Team</button>
+        <button class="nav-item" data-page="reports" onclick="goPage('reports')"><span class="ni">📈</span> Reports</button>
+        <button class="nav-item" onclick="showHub()"><span class="ni">🏠</span> Switch Project</button>
+      </div>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="user-chip">
+        <div class="avatar" id="sb-avatar">?</div>
+        <div class="user-meta"><div class="user-name" id="sb-username">...</div><div class="user-role" id="sb-role">...</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="Logout" style="padding:4px 6px;margin-left:4px">↩</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="topbar">
+      <div id="topbar-title">Dashboard</div>
+      <div id="topbar-actions"></div>
+    </div>
+    <div id="content">
+      <div id="page-dashboard" class="page">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="dash-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="card"><div class="card-title">By Type</div><div id="dash-by-type"></div></div>
+          <div class="card"><div class="card-title">Recently Updated</div><div id="dash-recent"></div></div>
+        </div>
+      </div>
+      <div id="page-entities" class="page" style="display:none">
+        <div class="sec-hd">
+          <div class="sec-title">All Entities</div>
+          <div style="display:flex;gap:8px">
+            <input id="ent-search" placeholder="🔍 Search..." style="width:200px" oninput="renderEntitiesTable()">
+            <select id="ent-type-filter" style="width:160px" onchange="renderEntitiesTable()"><option value="">All types</option></select>
+            <button class="btn btn-primary" onclick="openCreateEntity()">+ New Entity</button>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="tbl"><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Tags</th><th>Updated</th></tr></thead>
+          <tbody id="ent-tbody"></tbody></table>
+        </div>
+      </div>
+      <div id="page-type-entities" class="page" style="display:none">
+        <div class="sec-hd">
+          <div class="sec-title" id="type-ent-title">Entities</div>
+          <div style="display:flex;gap:8px">
+            <input id="te-search" placeholder="🔍 Search..." style="width:200px" oninput="renderTypeEntities()">
+            <button class="btn btn-primary" onclick="openCreateEntity(S.currentTypeId)">+ New</button>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="tbl"><thead><tr><th>Name</th><th>Status</th><th>Pipeline</th><th>Environment</th><th>Updated</th></tr></thead>
+          <tbody id="te-tbody"></tbody></table>
+        </div>
+      </div>
+      <div id="page-schema" class="page" style="display:none">
+        <div class="sec-hd">
+          <div class="sec-title">Schema Studio</div>
+          <button class="btn btn-primary" onclick="openCreateType()">+ New Type</button>
+        </div>
+        <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Define what exists in your game. Types are blueprints — entities are the actual things.</p>
+        <div id="schema-list"></div>
+      </div>
+      <div id="page-tags" class="page" style="display:none">
+        <div class="sec-hd"><div class="sec-title">Tags & Components</div><button class="btn btn-primary" onclick="openCreateTag()">+ New Tag</button></div>
+        <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Attachable concepts — damage types, status effects, rarities, traits — linkable to any entity.</p>
+        <div id="tags-list"></div>
+      </div>
+      <div id="page-pipelines" class="page" style="display:none">
+        <div class="sec-hd"><div class="sec-title">Pipeline Templates</div><button class="btn btn-primary" onclick="savePipelines()">💾 Save</button></div>
+        <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Default pipeline steps per category. Entity types inherit these. Editable by Director, PM, or Department Leads.</p>
+        <div id="pipelines-editor"></div>
+      </div>
+      <div id="page-my-tasks" class="page" style="display:none">
+        <div class="sec-hd"><div class="sec-title">My Tasks</div></div>
+        <div id="my-tasks-content"></div>
+      </div>
+      <div id="page-review" class="page" style="display:none">
+        <div class="sec-hd"><div class="sec-title">Review Queue</div><p style="font-size:13px;color:var(--text3)">Tasks submitted for your approval</p></div>
+        <div id="review-content"></div>
+      </div>
+      <div id="page-reports" class="page" style="display:none">
+        <div class="sec-hd"><div class="sec-title">Reports</div>
+          <button class="btn btn-primary" onclick="exportJSON()">⬇️ Export JSON</button>
+        </div>
+        <div id="reports-content"></div>
+      </div>
+      <div id="page-team" class="page" style="display:none">
+        <div class="sec-hd"><div class="sec-title">Team</div><div id="team-actions"></div></div>
+        <div id="invite-section" style="display:none" class="card">
+          <div class="card-title">Project Invite Code</div>
+          <div class="invite-code" id="invite-code-display" onclick="copyInviteCode()">----</div>
+          <p class="form-hint" style="text-align:center;margin-top:8px">Click to copy. Share with team members to join.</p>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <input id="invite-email" type="email" placeholder="teammate@studio.com" style="flex:1">
+            <button class="btn" onclick="sendInviteEmail()">📧 Send Invite</button>
+          </div>
+        </div>
+        <div id="team-list"></div>
+      </div>
+    </div>
+    <div id="entity-view">
+      <div id="ev-main">
+        <button class="btn btn-ghost btn-sm" onclick="closeEntityView()" style="margin-bottom:16px">← Back</button>
+        <div id="ev-inner"></div>
+      </div>
+      <div id="ev-side">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Activity</div>
+        <div id="ev-comments"></div>
+        <div style="margin-top:16px">
+          <select id="cmt-type" style="margin-bottom:8px;font-size:12px">
+            <option value="comment">💬 Comment</option>
+            <option value="change_request">🔄 Change Request</option>
+            <option value="limitation">⚠️ Limitation Flag</option>
+            <option value="signoff">✅ Sign-off</option>
+          </select>
+          <textarea id="cmt-input" placeholder="Add a comment..." style="min-height:70px;font-size:13px;margin-bottom:8px"></textarea>
+          <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center" onclick="submitComment()">Post</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay" style="display:none" class="overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal-box" class="modal"></div>
+</div>
+
+<script>
+const S = {
+  user:null, project:null, membership:null,
+  types:[], entities:[], tags:[], pipelines:{},
+  currentPage:'dashboard', currentTypeId:null, currentEntityId:null
+};
+
+// ═══ PERMISSIONS ════════════════════════════════════════
+function getMyRoles() {
+  if (S.user?.accountType === 'director') return ['director'];
+  if (!S.membership) return ['viewer'];
+  return Array.isArray(S.membership.roles) ? S.membership.roles : [S.membership.role || 'viewer'];
+}
+
+function isDirector() { return S.user?.accountType === 'director' || getMyRoles().includes('director'); }
+
+// Check if my roles have a specific permission
+function hasPerm(category, col) {
+  if (isDirector()) return true;
+  const roles = getMyRoles();
+  const perms = S.project?.permissions || {};
+  return roles.some(function(role) {
+    var rp = perms[role] || getDefaultPerms(role);
+    return (rp[category]||[]).includes(col);
+  });
+}
+
+function isLeadOrDirector() {
+  if (isDirector()) return true;
+  const roles = getMyRoles();
+  // Check if any role has assign permission (leads can assign)
+  if (hasPerm('tasks','assign')) return true;
+  return roles.some(r => r.includes('lead') || r === 'project_manager');
+}
+
+function canEditDesign() {
+  return hasPerm('entities','edit') || hasPerm('entities','create');
+}
+
+function canUpdatePipelineStep(stepDept) {
+  if (isDirector()) return true;
+  // Check if they have 'all' pipeline permission
+  if (hasPerm('pipeline','all')) return true;
+  // Check if they have 'own_dept' and their department matches
+  if (hasPerm('pipeline','own_dept')) {
+    const myDept = S.membership?.department || '';
+    return !stepDept || !myDept || myDept === stepDept;
+  }
+  return false;
+}
+
+const COLORS = ['#6366f1','#a855f7','#ec4899','#ef4444','#f59e0b','#10b981','#14b8a6','#3b82f6','#f97316','#06b6d4'];
+const STATUSES = ['draft','in-progress','review','done','blocked'];
+const DEPTS = ['design','art','programming','production','qa','audio'];
+const FIELD_TYPES = ['text','richtext','number','percentage','boolean','enum','reference','reference_list','loot_table','image'];
+
+const CATEGORIES = [
+  {id:'concept',   icon:'📋', name:'Concept',    desc:'Blueprint/schema (ITEM, ENEMY)'},
+  {id:'phenomenon',icon:'🌦', name:'Phenomenon', desc:'World effect (Weather, Seasons)'},
+  {id:'entity',    icon:'🧍', name:'Entity',     desc:'Unreal Actor (Item, NPC, Enemy)'},
+  {id:'mechanic',  icon:'⚡', name:'Mechanic',   desc:'Gameplay action (Jump, Parry)'},
+  {id:'system',    icon:'⚙️', name:'System',     desc:'Interconnected (Crafting, Building)'},
+  {id:'world',     icon:'🌍', name:'World',      desc:'Large scale (Biome, Region)'},
+  {id:'location',  icon:'📍', name:'Location',   desc:'Specific place (City, Dungeon)'},
+];
+
+// Categories that use design-doc style editor instead of data fields
+const DOC_CATEGORIES = ['mechanic','system','concept'];
+
+// Default mechanic/system blocks
+const MECH_BLOCKS = [
+  {id:'summary',      label:'Summary',           type:'richtext', hint:'One sentence: what does this do?'},
+  {id:'how_it_works', label:'How it works',      type:'richtext', hint:'Step by step description'},
+  {id:'trigger',      label:'Input / Trigger',   type:'richtext', hint:'What activates this mechanic?'},
+  {id:'conditions',   label:'Conditions',        type:'richtext', hint:'When does it work / not work?'},
+  {id:'parameters',   label:'Parameters',        type:'params',   hint:'Tunable numbers (e.g. Parry Window: 0.2s)'},
+  {id:'edge_cases',   label:'Edge Cases',        type:'richtext', hint:'Known issues, exceptions, designer notes'},
+  {id:'references',   label:'References',        type:'richtext', hint:'Similar games, videos, concept links'},
+];
+
+const SYSTEM_BLOCKS = [
+  {id:'summary',      label:'Summary',           type:'richtext', hint:'What problem does this system solve?'},
+  {id:'how_it_works', label:'How it works',      type:'richtext', hint:'Full description of the system'},
+  {id:'subsystems',   label:'Sub-systems',       type:'richtext', hint:'What smaller mechanics make this up?'},
+  {id:'dependencies', label:'Dependencies',      type:'richtext', hint:'What other systems must exist for this to work?'},
+  {id:'parameters',   label:'Parameters',        type:'params',   hint:'Tunable values'},
+  {id:'edge_cases',   label:'Edge Cases & TODOs', type:'richtext', hint:'Open questions, known issues'},
+];
+
+async function api(method, url, body) {
+  const r = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined});
+  return r.json();
+}
+
+// ═══ AUTH ═══════════════════════════════════════════════
+let selectedAccountType = 'director';
+function authTab(t) {
+  ['login','register'].forEach((x,i) => {
+    document.getElementById('pane-'+x).style.display = x===t?'block':'none';
+    document.querySelectorAll('.auth-tab')[i].classList.toggle('on', x===t);
+  });
+}
+function selectAccountType(t) {
+  selectedAccountType = t;
+  document.getElementById('at-director').classList.toggle('on', t==='director');
+  document.getElementById('at-member').classList.toggle('on', t==='member');
+}
+async function doLogin() {
+  const res = await api('POST','/api/auth/login',{username:v('l-user'),password:v('l-pass')});
+  if (res.error) { document.getElementById('l-err').textContent=res.error; return; }
+  S.user=res; afterAuth();
+}
+async function doRegister() {
+  const res = await api('POST','/api/auth/register',{username:v('r-user'),password:v('r-pass'),accountType:selectedAccountType});
+  if (res.error) { document.getElementById('r-err').textContent=res.error; return; }
+  S.user=res; afterAuth();
+}
+async function doLogout() { await api('POST','/api/auth/logout'); location.reload(); }
+async function afterAuth() { document.getElementById('auth-screen').style.display='none'; showHub(); }
+
+// ═══ HUB ════════════════════════════════════════════════
+async function showHub() {
+  document.getElementById('shell').style.display='none';
+  document.getElementById('hub-screen').style.display='flex';
+  document.getElementById('hub-welcome').textContent = `Welcome back, ${S.user?.username}`;
+  const isDir = S.user?.accountType === 'director';
+  document.getElementById('hub-actions').innerHTML = isDir
+    ? `<button class="btn btn-primary" onclick="openCreateProject()">+ New Project</button>`
+    : `<button class="btn" onclick="toggleJoinForm()">Join Project</button>`;
+
+  const projects = await api('GET','/api/projects');
+  const container = document.getElementById('hub-projects');
+  if (!projects.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">${isDir?'🎮':'🔑'}</div>
+      <h3>${isDir?'No projects yet':'Not in any projects'}</h3>
+      <p>${isDir?'Create your first project':'Enter an invite code from your director'}</p></div>`;
+    if (!isDir) document.getElementById('hub-join').style.display='block';
+    return;
+  }
+  container.innerHTML = projects.map(p=>`
+    <div class="project-card" onclick="enterProject('${p.id}')">
+      <div class="project-icon">🎮</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600">${p.name}</div>
+        <div style="font-size:12px;color:var(--text3)">Code: ${p.inviteCode} · ${p.membership?.role||'member'}</div>
+      </div>
+      <span class="badge badge-accent">→</span>
+    </div>
+  `).join('');
+  if (!isDir) container.innerHTML += `<button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="toggleJoinForm()">Join another project</button>`;
+}
+
+function toggleJoinForm() {
+  const el=document.getElementById('hub-join');
+  el.style.display = el.style.display==='none'?'block':'none';
+}
+async function joinProject() {
+  const res = await api('POST','/api/projects/join',{code:v('join-code').toUpperCase()});
+  if (res.error) { document.getElementById('join-err').textContent=res.error; return; }
+  enterProject(res.project.id);
+}
+
+function openCreateProject() {
+  showModal('','New Project',`
+    <div class="form-group"><label class="form-label">Project Name *</label><input id="proj-name" placeholder="e.g. Project Nova, Ironhaven"></div>
+    <div class="form-group">
+      <label class="form-label">Game Genre</label>
+      <select id="proj-genre">
+        <option value="survival_crafting">Open World Survival Crafting</option>
+        <option value="mmorpg">MMORPG</option>
+        <option value="rpg">RPG / Action RPG</option>
+        <option value="fps">FPS / Shooter</option>
+        <option value="strategy">Strategy / RTS</option>
+        <option value="platformer">Platformer</option>
+        <option value="blank">Blank — I'll set up everything manually</option>
+      </select>
+      <p class="form-hint">Pre-loads types, sub-types, fields and pipelines for your genre. All editable after creation.</p>
+    </div>
+  `,[
+    {label:'Cancel',onclick:'closeModal()'},
+    {label:'Create Project',primary:true,onclick:'submitCreateProject()'}
+  ]);
+}
+
+async function submitCreateProject() {
+  const name=v('proj-name'); if(!name) return;
+  const genre=v('proj-genre');
+  const res = await api('POST','/api/projects',{name,genre});
+  if (res.error) return alert(res.error);
+  closeModal();
+  // Pre-load genre templates
+  if (genre !== 'blank') await loadGenreTemplates(res.id, genre);
+  enterProject(res.id);
+}
+
+async function loadGenreTemplates(projectId, genre) {
+  const templates = getGenreTemplates(genre);
+  const createdIds = {};
+
+  // First pass: create all parent types (no parentName)
+  for (const type of templates) {
+    if (!type.parentName) {
+      const data = Object.assign({}, type);
+      delete data.parentName;
+      const created = await api('POST',`/api/projects/${projectId}/entity-types`, data);
+      if (created && created.id) createdIds[type.name] = created.id;
+    }
+  }
+
+  // Second pass: create sub-types with resolved parentId
+  for (const type of templates) {
+    if (type.parentName) {
+      const parentId = createdIds[type.parentName];
+      if (!parentId) { console.warn('Parent not found:', type.parentName); continue; }
+      const data = Object.assign({}, type);
+      delete data.parentName;
+      data.parentId = parentId;
+      // Sub-types inherit parent pipeline if no pipeline defined
+      if (!data.pipeline || !data.pipeline.length) {
+        const parentType = Object.values(createdIds);
+        data.pipeline = [];
+      }
+      const created = await api('POST',`/api/projects/${projectId}/entity-types`, data);
+      if (created && created.id) createdIds[type.name] = created.id;
+    }
+  }
+
+  // Load tags
+  const tags = getGenreTags(genre);
+  for (const tag of tags) {
+    await api('POST',`/api/projects/${projectId}/tags`, tag);
+  }
+}
+
+function getGenreTemplates(genre) {
+  const pipelines = {
+    entity: [{id:'concept_art',name:'Concept Art',dept:'art'},{id:'mesh',name:'Mesh',dept:'art'},{id:'texture',name:'Texture',dept:'art'},{id:'icon',name:'Icon',dept:'art'},{id:'engine_import',name:'Engine Import',dept:'art'},{id:'implemented',name:'Implemented',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}],
+    mechanic: [{id:'design_doc',name:'Design Doc',dept:'design'},{id:'prototype',name:'Prototype',dept:'programming'},{id:'animation',name:'Animation',dept:'art'},{id:'vfx',name:'VFX',dept:'art'},{id:'sound',name:'Sound',dept:'audio'},{id:'coded',name:'Coded',dept:'programming'},{id:'balanced',name:'Balanced',dept:'design'},{id:'qa',name:'QA',dept:'qa'}],
+    system: [{id:'design_doc',name:'Design Doc',dept:'design'},{id:'prototype',name:'Prototype',dept:'programming'},{id:'implemented',name:'Implemented',dept:'programming'},{id:'balanced',name:'Balanced',dept:'design'},{id:'qa',name:'QA',dept:'qa'}],
+    world: [{id:'design',name:'Design',dept:'design'},{id:'blockout',name:'Blockout',dept:'art'},{id:'art_pass',name:'Art Pass',dept:'art'},{id:'populated',name:'Populated',dept:'design'},{id:'optimized',name:'Optimized',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}],
+  };
+
+  if (genre === 'survival_crafting') return [
+    // CONCEPTS (blueprints/schemas - no pipeline)
+    {name:'ITEM',      category:'concept', icon:'📦', color:'#6366f1', fields:[
+      {id:'description',name:'Description',type:'richtext',description:'What is this item? Lore and purpose.',required:false},
+      {id:'rarity',    name:'Rarity',     type:'enum',  description:'How rare is this item in the world?', options:['Common','Uncommon','Rare','Epic','Legendary'],required:true},
+      {id:'weight',    name:'Weight',     type:'number',description:'Item weight in kg. Affects carry capacity.',required:false},
+      {id:'stackable', name:'Stackable',  type:'boolean',description:'Can multiple copies stack in one inventory slot?',required:false},
+      {id:'max_stack', name:'Max Stack',  type:'number',description:'Maximum number that can stack in one slot. Only relevant if Stackable = Yes.',required:false},
+      {id:'droppable', name:'Droppable',  type:'boolean',description:'Can the player drop this item on the ground?',required:false},
+      {id:'tradeable', name:'Tradeable',  type:'boolean',description:'Can this item be traded to vendors or other players?',required:false},
+    ], pipeline:[]},
+
+    {name:'WEAPON',    category:'concept', icon:'⚔️', color:'#ef4444', parentName:'ITEM', fields:[
+      {id:'base_damage',   name:'Base Damage',   type:'number',     description:'Raw damage dealt per hit before armor/resistances are applied.',required:true},
+      {id:'attack_speed',  name:'Attack Speed',  type:'number',     description:'Attacks per second. 1.0 = one attack per second.',required:true},
+      {id:'durability',    name:'Durability',    type:'number',     description:'Number of hits before the item breaks. -1 = unbreakable.',required:true},
+      {id:'range',         name:'Range',         type:'number',     description:'Attack range in meters.',required:false},
+      {id:'req_level',     name:'Req. Level',    type:'number',     description:'Minimum player level required to equip this weapon.',required:false},
+      {id:'two_handed',    name:'Two Handed',    type:'boolean',    description:'Does equipping this weapon use both hand slots?',required:false},
+      {id:'crafting_recipe',name:'Crafting Recipe',type:'loot_table',description:'Materials needed to craft this weapon at a crafting station.',required:false},
+      {id:'crafted_at',    name:'Crafted At',    type:'reference',  description:'Which crafting station produces this weapon.',required:false},
+    ], pipeline:[]},
+
+    {name:'ARMOR',     category:'concept', icon:'🛡️', color:'#3b82f6', parentName:'ITEM', fields:[
+      {id:'defense',       name:'Defense',       type:'number',     description:'Flat damage reduction applied before percentage resistance.',required:true},
+      {id:'slot',          name:'Slot',          type:'enum',       description:'Which equipment slot this armor occupies.',options:['Head','Chest','Legs','Feet','Hands','Back'],required:true},
+      {id:'durability',    name:'Durability',    type:'number',     description:'Number of hits before armor breaks. -1 = unbreakable.',required:true},
+      {id:'req_level',     name:'Req. Level',    type:'number',     description:'Minimum player level required to equip.',required:false},
+      {id:'crafting_recipe',name:'Crafting Recipe',type:'loot_table',description:'Materials needed to craft this armor.',required:false},
+      {id:'crafted_at',    name:'Crafted At',    type:'reference',  description:'Which crafting station produces this armor.',required:false},
+    ], pipeline:[]},
+
+    {name:'CONSUMABLE',category:'concept', icon:'🧪', color:'#10b981', parentName:'ITEM', fields:[
+      {id:'effect',        name:'Effect',        type:'richtext',   description:'What happens when the player uses this item? Be specific about values.',required:true},
+      {id:'duration',      name:'Duration (s)',  type:'number',     description:'How long the effect lasts in seconds. 0 = instant.',required:false},
+      {id:'cooldown',      name:'Cooldown (s)',  type:'number',     description:'Time in seconds before this item can be used again.',required:false},
+      {id:'stack_size',    name:'Stack Size',    type:'number',     description:'How many can be carried in one slot.',required:false},
+    ], pipeline:[]},
+
+    {name:'MATERIAL',  category:'concept', icon:'🪨', color:'#f59e0b', parentName:'ITEM', fields:[
+      {id:'source',        name:'Source',        type:'richtext',   description:'Where does this material come from? Nodes, enemies, crafting?',required:false},
+      {id:'stack_size',    name:'Stack Size',    type:'number',     description:'How many can be stacked in one slot.',required:true},
+      {id:'used_in',       name:'Used In',       type:'richtext',   description:'What recipes or systems use this material?',required:false},
+    ], pipeline:[]},
+
+    // ENTITIES
+    {name:'Enemy',     category:'entity',  icon:'👾', color:'#ef4444', fields:[
+      {id:'hp',            name:'HP',            type:'number',     description:'Base health points. This is max HP at spawn.',required:true},
+      {id:'damage',        name:'Damage',        type:'number',     description:'Base damage per attack before player armor.',required:true},
+      {id:'armor',         name:'Armor',         type:'number',     description:'Flat damage reduction on incoming hits.',required:false},
+      {id:'move_speed',    name:'Move Speed',    type:'number',     description:'Movement speed in m/s.',required:false},
+      {id:'aggro_range',   name:'Aggro Range',   type:'number',     description:'Distance in meters at which the enemy detects and pursues the player.',required:false},
+      {id:'xp_drop',       name:'XP Drop',       type:'number',     description:'Experience points awarded to the player on death.',required:false},
+      {id:'loot_table',    name:'Loot Table',    type:'loot_table', description:'Items dropped on death with their quantity range and drop chance.',required:false},
+      {id:'behavior',      name:'Behavior Notes',type:'richtext',   description:'AI behavior description: patrol, aggro triggers, special attacks, flee conditions.',required:false},
+    ], pipeline: pipelines.entity},
+
+    {name:'NPC',       category:'entity',  icon:'🧑', color:'#a855f7', fields:[
+      {id:'role',          name:'Role',          type:'enum',       description:'What function does this NPC serve in the world?',options:['Vendor','Quest Giver','Companion','Neutral','Trainer'],required:true},
+      {id:'location',      name:'Location',      type:'reference',  description:'Where is this NPC normally found?',required:false},
+      {id:'faction',       name:'Faction',       type:'reference',  description:'Which faction does this NPC belong to?',required:false},
+      {id:'dialogue_notes',name:'Dialogue Notes',type:'richtext',   description:'Key dialogue topics, personality, tone. Full dialogue goes in the Dialogue system.',required:false},
+      {id:'inventory',     name:'Inventory',     type:'loot_table', description:'Items available for purchase if this NPC is a vendor.',required:false},
+    ], pipeline: pipelines.entity},
+
+    {name:'Resource Node',category:'entity',icon:'🌳',color:'#10b981', fields:[
+      {id:'biome',         name:'Biome',         type:'reference',  description:'Which biome(s) this node spawns in.',required:false},
+      {id:'loot_table',    name:'Drops',         type:'loot_table', description:'What resources this node yields when harvested.',required:true},
+      {id:'respawn_time',  name:'Respawn (min)', type:'number',     description:'Time in minutes before this node respawns after being harvested.',required:false},
+      {id:'tool_required', name:'Tool Required', type:'reference',  description:'Which tool is needed to harvest this node. Leave empty = no tool required.',required:false},
+      {id:'spawn_notes',   name:'Spawn Notes',   type:'richtext',   description:'Additional spawn conditions: time of day, weather, density notes.',required:false},
+    ], pipeline: pipelines.entity},
+
+    {name:'Biome',     category:'world',   icon:'🌍', color:'#14b8a6', fields:[
+      {id:'description',   name:'Description',   type:'richtext',   description:'Visual and atmospheric description of this biome.',required:true},
+      {id:'temperature',   name:'Temperature',   type:'enum',       description:'Temperature range affects player survival mechanics.',options:['Freezing','Cold','Temperate','Warm','Hot','Scorching'],required:false},
+      {id:'hazards',       name:'Hazards',       type:'richtext',   description:'Environmental dangers: storms, floods, temperature damage, poison air.',required:false},
+      {id:'resources',     name:'Key Resources', type:'richtext',   description:'Notable resources found in this biome.',required:false},
+      {id:'enemies',       name:'Enemy Types',   type:'richtext',   description:'What enemy types commonly spawn here.',required:false},
+    ], pipeline: pipelines.world},
+
+    // MECHANICS
+    {name:'Combat System',category:'system',icon:'⚔️',color:'#ef4444', fields:[
+      {id:'summary',       name:'Summary',       type:'richtext',   description:'One paragraph overview of how combat works.',required:true},
+      {id:'how_it_works',  name:'How It Works',  type:'richtext',   description:'Step by step breakdown of a combat encounter.',required:false},
+      {id:'parameters',    name:'Parameters',    type:'richtext',   description:'Key tunable values: attack windows, damage formulas, stamina costs.',required:false},
+      {id:'edge_cases',    name:'Edge Cases',    type:'richtext',   description:'Known issues, corner cases, open design questions.',required:false},
+    ], pipeline: pipelines.system},
+
+    {name:'Crafting System',category:'system',icon:'⚙️',color:'#f59e0b', fields:[
+      {id:'summary',       name:'Summary',       type:'richtext',   description:'How does crafting work at a high level?',required:true},
+      {id:'stations',      name:'Crafting Stations',type:'richtext',description:'List of crafting stations and what they produce.',required:false},
+      {id:'how_it_works',  name:'How It Works',  type:'richtext',   description:'Player flow: open menu → select recipe → confirm materials → craft.',required:false},
+      {id:'edge_cases',    name:'Edge Cases',    type:'richtext',   description:'Failed crafts, missing materials, inventory full behavior.',required:false},
+    ], pipeline: pipelines.system},
+  ];
+
+  return [];
+}
+
+function getGenreTags(genre) {
+  if (genre === 'survival_crafting') return [
+    {name:'Slashing',    category:'Damage Type', color:'#ef4444', description:'Deals slashing damage. May cause Bleeding on hit.'},
+    {name:'Piercing',    category:'Damage Type', color:'#f97316', description:'Deals piercing damage. High armor penetration.'},
+    {name:'Bludgeoning', category:'Damage Type', color:'#f59e0b', description:'Deals bludgeoning damage. Can stagger enemies.'},
+    {name:'Fire',        category:'Damage Type', color:'#ef4444', description:'Deals fire damage. Applies Burning status.'},
+    {name:'Ice',         category:'Damage Type', color:'#06b6d4', description:'Deals ice damage. Applies Frozen/Slow status.'},
+    {name:'Poison',      category:'Damage Type', color:'#10b981', description:'Deals poison damage over time.'},
+    {name:'Common',      category:'Rarity',      color:'#9fa8c7', description:'Standard items found everywhere.'},
+    {name:'Uncommon',    category:'Rarity',      color:'#10b981', description:'Better than average. Found in mid-tier areas.'},
+    {name:'Rare',        category:'Rarity',      color:'#3b82f6', description:'Hard to find. Significant power advantage.'},
+    {name:'Epic',        category:'Rarity',      color:'#a855f7', description:'Very rare. Exceptional power.'},
+    {name:'Legendary',   category:'Rarity',      color:'#f59e0b', description:'Extremely rare. Game-changing power.'},
+    {name:'Craftable',   category:'Acquisition', color:'#6366f1', description:'Can be crafted at a crafting station.'},
+    {name:'Lootable',    category:'Acquisition', color:'#14b8a6', description:'Dropped by enemies or found in containers.'},
+    {name:'Quest Item',  category:'Special',     color:'#ec4899', description:'Required for a quest. Cannot be dropped or traded.'},
+    {name:'Bleeding',    category:'Status Effect',color:'#ef4444', description:'Deals damage over time. Cured by bandage.'},
+    {name:'Burning',     category:'Status Effect',color:'#f97316', description:'Fire damage over time. Move to water to extinguish.'},
+    {name:'Poisoned',    category:'Status Effect',color:'#10b981', description:'Poison damage over time. Cured by antidote.'},
+    {name:'Frozen',      category:'Status Effect',color:'#06b6d4', description:'Slowed movement and attack speed.'},
+  ];
+  return [];
+}
+
+async function enterProject(projectId) {
+  const projects = await api('GET','/api/projects');
+  S.project = projects.find(p=>p.id===projectId);
+  if (!S.project) return;
+  S.membership = S.project.membership;
+  document.getElementById('hub-screen').style.display='none';
+  document.getElementById('shell').style.display='flex';
+  document.getElementById('sb-project-name').textContent = S.project.name;
+  document.getElementById('sb-avatar').textContent = S.user.username[0].toUpperCase();
+  document.getElementById('sb-username').textContent = S.user.username;
+  document.getElementById('sb-role').textContent = S.membership?.role || S.user.accountType;
+  await loadProjectData();
+  // Non-directors land on My Tasks, directors on Dashboard
+  if (S.user?.accountType === 'director' || isLeadOrDirector()) {
+    goPage('dashboard');
+  } else {
+    goPage('my-tasks');
+  }
+}
+
+async function loadProjectData() {
+  const pid = S.project.id;
+  [S.types, S.entities, S.tags, S.pipelines] = await Promise.all([
+    api('GET',`/api/projects/${pid}/entity-types`),
+    api('GET',`/api/projects/${pid}/entities`),
+    api('GET',`/api/projects/${pid}/tags`),
+    api('GET',`/api/projects/${pid}/pipelines`)
+  ]);
+  renderSidebarTypes();
+  document.getElementById('nc-all').textContent = S.entities.length;
+  // Load task counts
+  try {
+    const myTasks = await api('GET',`/api/projects/${S.project.id}/my-tasks`);
+    const active = myTasks.filter(t=>t.status!=='done').length;
+    document.getElementById('nc-tasks').textContent = active||'';
+    const reviewQ = await api('GET',`/api/projects/${S.project.id}/review-queue`);
+    document.getElementById('nc-review').textContent = reviewQ.length||'';
+  } catch(e) {}
+}
+
+// ═══ NAVIGATION ═════════════════════════════════════════
+function goPage(page, typeId) {
+  S.currentPage=page; S.currentTypeId=typeId||null;
+  document.querySelectorAll('.page').forEach(el=>el.style.display='none');
+  document.getElementById('entity-view').classList.remove('on');
+  document.getElementById('content').style.display='block';
+  document.getElementById('topbar-actions').innerHTML='';
+  document.querySelectorAll('.nav-item[data-page]').forEach(n=>{
+    n.classList.toggle('active', n.dataset.page===page && (!typeId||n.dataset.typeid===typeId));
+  });
+  const titles={dashboard:'Dashboard',entities:'All Entities',schema:'Schema Studio',tags:'Tags & Components',pipelines:'Pipeline Templates',team:'Team'};
+  document.getElementById('topbar-title').textContent = titles[page]||'';
+
+  if (page==='dashboard') { show('page-dashboard'); renderDashboard(); }
+  else if (page==='entities') { show('page-entities'); populateTypeFilter(); renderEntitiesTable(); }
+  else if (page==='type-entities') {
+    show('page-type-entities');
+    const t=S.types.find(t=>t.id===typeId);
+    const title=(t?.icon||'')+' '+(t?.name||'Entities');
+    document.getElementById('type-ent-title').textContent=title;
+    document.getElementById('topbar-title').textContent=title;
+    renderTypeEntities();
+  }
+  else if (page==='schema') { show('page-schema'); renderSchema(); }
+  else if (page==='tags') { show('page-tags'); renderTags(); }
+  else if (page==='pipelines') { show('page-pipelines'); renderPipelinesEditor(); }
+  else if (page==='team') { show('page-team'); renderTeam(); }
+  else if (page==='my-tasks') { show('page-my-tasks'); renderMyTasks(); }
+  else if (page==='review') { show('page-review'); renderReviewQueue(); }
+  else if (page==='reports') { show('page-reports'); renderReports(); }
+}
+
+function show(id) { document.getElementById(id).style.display='block'; }
+
+function renderSidebarTypes() {
+  // Group by category
+  const groups={};
+  S.types.forEach(t=>{ if(!groups[t.category]) groups[t.category]=[]; groups[t.category].push(t); });
+  let html='';
+  CATEGORIES.forEach(cat=>{
+    const types = groups[cat.id]||[];
+    if (!types.length) return;
+    types.forEach(t=>{
+      const isParent = !t.parentId;
+      const children = S.types.filter(c=>c.parentId===t.id);
+      html += `<button class="nav-item ${isParent&&children.length?'':'nav-sub-item'}" data-page="type-entities" data-typeid="${t.id}" onclick="goPage('type-entities','${t.id}')" style="${t.parentId?'padding-left:22px;':''}">
+        <span class="ni">${t.icon}</span> ${t.name}
+        <span class="nc">${S.entities.filter(e=>e.typeId===t.id).length}</span>
+      </button>`;
+    });
+  });
+  document.getElementById('sb-types').innerHTML = html||'<p style="font-size:12px;color:var(--text3);padding:4px 10px">No types yet</p>';
+  document.getElementById('nc-all').textContent=S.entities.length;
+}
+
+// ═══ DASHBOARD ══════════════════════════════════════════
+async function renderDashboard() {
+  const stats = await api('GET',`/api/projects/${S.project.id}/stats`);
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-value">${stats.totalEntities}</div><div class="stat-label">Total Entities</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--purple)">${stats.envCounts?.playable_build||0}</div><div class="stat-label">In Playable Build</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--red)">${stats.inIteration?.length||0}</div><div class="stat-label">In Iteration</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--green)">${stats.statusCounts?.done||0}</div><div class="stat-label">Fully Done</div></div>
+  `;
+  // Show iteration warning if any
+  if (stats.inIteration?.length) {
+    const iterWarn = document.createElement('div');
+    iterWarn.style.cssText='background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--red)';
+    iterWarn.innerHTML='⚠️ <strong>'+stats.inIteration.length+' entities in Iteration:</strong> '+stats.inIteration.map(e=>`<span style="cursor:pointer;text-decoration:underline" onclick="openEntityView('${e.id}')">${e.name}</span>`).join(', ');
+    const dashEl = document.getElementById('page-dashboard');
+    const firstCard = dashEl.querySelector('.card');
+    if (firstCard && !dashEl.querySelector('.iter-warn')) { iterWarn.classList.add('iter-warn'); dashEl.insertBefore(iterWarn, firstCard); }
+  }
+  document.getElementById('dash-by-type').innerHTML = stats.byType.length ? stats.byType.map(t=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="goPage('type-entities','${t.id}')">
+      <span style="font-size:17px">${t.icon}</span>
+      <div style="flex:1"><div style="font-size:13px;font-weight:500">${t.name} <span style="font-size:10px;color:var(--text3)">${t.category}</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,t.count*4)}%;background:${t.color}"></div></div></div>
+      <span style="font-size:13px;color:var(--text3)">${t.count}</span>
+    </div>`).join('') : '<p style="color:var(--text3);font-size:13px">No types yet. Go to Schema Studio.</p>';
+  document.getElementById('dash-recent').innerHTML = stats.recentEntities.length ? stats.recentEntities.map(e=>{
+    const t=S.types.find(t=>t.id===e.typeId);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openEntityView('${e.id}')">
+      <span style="font-size:16px">${t?.icon||'📦'}</span>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
+      <div style="font-size:11px;color:var(--text3)">${t?.name||''} · ${ago(e.updatedAt)}</div></div>
+      <span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span>
+    </div>`;
+  }).join('') : '<p style="color:var(--text3);font-size:13px">No entities yet.</p>';
+}
+
+// ═══ ENTITY TABLES ══════════════════════════════════════
+function entityRow(e, showPipe) {
+  const type=S.types.find(t=>t.id===e.typeId);
+  const tags=(e.tags||[]).slice(0,3).map(tid=>{const tg=S.tags.find(t=>t.id===tid);return tg?`<span class="tag" style="background:${tg.color}22;color:${tg.color}">${tg.name}</span>`:''}).join('');
+  const envColor = ENV_COLORS[e.environment||'not_in_engine']||'var(--text3)';
+  const envLabel = ENV_LABELS[e.environment||'not_in_engine']||'Not In Engine';
+  const pipe = showPipe && type?.pipeline?.length ? `<div style="display:flex;gap:2px">${type.pipeline.slice(0,6).map(step=>{const st=e.pipeline?.[step.id]||'pending';const c={done:'var(--green)',in_progress:'var(--amber)',blocked:'var(--red)',pending:'var(--border2)'};return `<div style="width:12px;height:12px;border-radius:2px;background:${c[st]||c.pending}" title="${step.name}: ${st}"></div>`}).join('')}</div>` : '';
+  if (showPipe) return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${pipe}</td><td><span style="font-size:11px;color:${envColor}">${envLabel}</span></td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
+  return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${tags||'—'}</td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
+}
+
+function renderEntitiesTable() {
+  const search=v('ent-search').toLowerCase(), typeId=v('ent-type-filter');
+  let list=S.entities;
+  if(search) list=list.filter(e=>e.name.toLowerCase().includes(search));
+  if(typeId) list=list.filter(e=>e.typeId===typeId);
+  document.getElementById('ent-tbody').innerHTML=list.map(e=>entityRow(e,false)).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:40px">No entities found</td></tr>';
+}
+
+function renderTypeEntities() {
+  const search=(document.getElementById('te-search')?.value||'').toLowerCase();
+  let list=S.entities.filter(e=>e.typeId===S.currentTypeId);
+  if(search) list=list.filter(e=>e.name.toLowerCase().includes(search));
+  document.getElementById('te-tbody').innerHTML=list.map(e=>entityRow(e,true)).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:40px">No entities yet. Click + New to create one.</td></tr>';
+}
+
+function populateTypeFilter() {
+  document.getElementById('ent-type-filter').innerHTML='<option value="">All types</option>'+S.types.map(t=>`<option value="${t.id}">${t.icon} ${t.name}</option>`).join('');
+}
+
+// ═══ ENTITY VIEW ════════════════════════════════════════
+async function openEntityView(entityId) {
+  S.currentEntityId=entityId;
+  const entity=S.entities.find(e=>e.id===entityId)||await api('GET',`/api/projects/${S.project.id}/entities/${entityId}`);
+  const type=S.types.find(t=>t.id===entity.typeId);
+  // Get all fields including inherited from parent
+  const allFields = getAllFields(type);
+
+  document.getElementById('content').style.display='none';
+  document.getElementById('entity-view').classList.add('on');
+  document.getElementById('topbar-title').textContent=entity.name;
+  const envLabels={not_in_engine:'Not In Engine',zoo:'🦁 ZOO',gym:'🏋️ GYM',playable_build:'🎮 Playable Build',iteration:'🔄 Iteration'};
+  document.getElementById('topbar-actions').innerHTML=`
+    <select style="width:140px;font-size:12px" onchange="updateEntityStatus('${entityId}',this.value)">
+      ${STATUSES.map(s=>`<option value="${s}" ${entity.status===s?'selected':''}>${s}</option>`).join('')}
+    </select>
+    <select style="width:160px;font-size:12px" onchange="updateEntityEnv('${entityId}',this.value)">
+      ${Object.entries(envLabels).map(([k,v])=>`<option value="${k}" ${(entity.environment||'not_in_engine')===k?'selected':''}>${v}</option>`).join('')}
+    </select>
+    ${isLeadOrDirector()?`<button class="btn btn-sm" onclick="openAssignModal('${entityId}')">📋 Assign</button>`:''}
+    ${canEditDesign()?`<button class="btn btn-sm" onclick="openEditEntity('${entityId}')">✏️ Edit</button>`:''}
+    ${isDirector()?`<button class="btn btn-sm btn-danger" onclick="deleteEntity('${entityId}')">🗑</button>`:''}
+  `;
+
+  let html=`<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:24px">
+    <div style="width:56px;height:56px;border-radius:var(--radius);overflow:hidden;flex-shrink:0;background:var(--bg4);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:32px">
+      ${entity.icon_url ? `<img src="${entity.icon_url}" style="width:100%;height:100%;object-fit:cover">` : (type?.icon||'📦')}
+    </div>
+    <div><h2 style="font-size:22px;font-weight:700;margin-bottom:6px">${entity.name}</h2>
+    <div class="chips">
+      ${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}
+      <span class="badge badge-${entity.status||'draft'}">${entity.status||'draft'}</span>
+          <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;background:var(--bg4);color:${ENV_COLORS[entity.environment||'not_in_engine']||'var(--text3)'}">${ENV_LABELS[entity.environment||'not_in_engine']||'Not In Engine'}</span>
+      ${(entity.tags||[]).map(tid=>{const tg=S.tags.find(t=>t.id===tid);return tg?`<span class="tag" style="background:${tg.color}22;color:${tg.color};font-size:12px">${tg.name}</span>`:''}).join('')}
+    </div></div></div>`;
+
+  if (type?.pipeline?.length) {
+    html+=`<div class="card" style="margin-bottom:20px">
+      <div class="card-title">Production Pipeline <span style="font-size:10px;font-weight:400;color:var(--text3)">(click to cycle)</span></div>
+      <div class="pipeline">${type.pipeline.map(step=>{const st=entity.pipeline?.[step.id]||'pending';return `<div class="pipe-step ${st}" onclick="cycleStep('${entityId}','${step.id}')"><div class="ps-name">${step.name}</div><div class="ps-dept">${step.dept||''}</div></div>`;}).join('')}</div>
+    </div>`;
+  }
+
+  if (allFields.length) {
+    html+=`<div class="card"><div class="card-title">Fields</div>`;
+    allFields.forEach(field=>{
+      const val=entity.fields?.[field.id];
+      html+=`<div class="fld-block"><div class="fld-label">${field.name}</div>`;
+      if(field.description) html+=`<div class="fld-desc">${field.description}</div>`;
+      if(field.type==='loot_table'){
+        const rows=val||[];
+        html+=`<div class="loot-tbl"><div class="loot-hd"><span>Entity</span><span>Min</span><span>Max</span><span>Chance%</span><span></span></div>
+          ${rows.map(r=>{const ref=S.entities.find(e=>e.id===r.entityId);return `<div class="loot-row-g"><span class="elink" onclick="openEntityView('${r.entityId}')">${ref?.name||r.name||'?'}</span><span>${r.min}</span><span>${r.max}</span><span>${r.chance}%</span><span></span></div>`;}).join('')}
+          ${!rows.length?'<div style="padding:10px;color:var(--text3);font-size:12px;text-align:center">No entries</div>':''}
+        </div>`;
+      } else if(field.type==='reference'){
+        const ref=S.entities.find(e=>e.id===val);
+        html+=ref?`<div class="fld-val"><span class="elink" onclick="openEntityView('${ref.id}')">${ref.name}</span></div>`:`<div class="fld-val" style="color:var(--text3)">—</div>`;
+      } else if(field.type==='reference_list'){
+        const refs=(val||[]).map(id=>S.entities.find(e=>e.id===id)).filter(Boolean);
+        html+=`<div class="fld-val chips">${refs.length?refs.map(r=>`<span class="elink" onclick="openEntityView('${r.id}')">${r.name}</span>`).join(''):'<span style="color:var(--text3)">—</span>'}</div>`;
+      } else if(field.type==='richtext'){
+        const linkedRich = val ? linkifyText(val) : null;
+        html+=`<div class="fld-val" style="white-space:pre-wrap;color:var(--text2);line-height:1.7">${linkedRich||'<span style="color:var(--text3)">—</span>'}</div>`;
+      } else if(field.type==='boolean'){
+        html+=`<div class="fld-val">${val==='true'||val===true?'✅ Yes':'❌ No'}</div>`;
+      } else {
+        const displayVal = (val!==undefined&&val!=='') ? linkifyText(String(val)) : null;
+        html+=`<div class="fld-val">${displayVal||'<span style="color:var(--text3)">—</span>'}</div>`;
+      }
+      html+=`</div>`;
+    });
+    html+=`</div>`;
+  }
+
+  // Cross references - what links to this entity
+  const xrefs = await api('GET',`/api/projects/${S.project.id}/references/${entityId}`);
+  if (xrefs.length) {
+    html+=`<div class="card"><div class="card-title">Referenced By</div>`;
+    xrefs.forEach(ref=>{
+      const refEntity=S.entities.find(e=>e.id===ref.entityId);
+      const refType=S.types.find(t=>t.id===refEntity?.typeId);
+      html+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openEntityView('${ref.entityId}')">
+        <span>${refType?.icon||'📦'}</span>
+        <span class="elink">${ref.name}</span>
+        <span style="color:var(--text3);font-size:11px">${refType?.name||''} · ${ref.relType}</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  // Pipeline tasks for this entity
+  const entityTasks = await api('GET',`/api/projects/${S.project.id}/tasks?entityId=${entityId}`);
+  if (entityTasks.length && type?.pipeline?.length) {
+    // Update pipeline display with task info
+    const pipeHtml = type.pipeline.map(step=>{
+      const task = entityTasks.find(t=>t.stepId===step.id);
+      const st = task?.status||'not_started';
+      const stClass = {not_started:'pending', in_progress:'in-progress', in_review:'in-progress', done:'done', blocked:'blocked'}[st]||'pending';
+      const canUpdate = canUpdatePipelineStep(step.dept);
+      return `<div class="pipe-step ${stClass}" ${canUpdate?`onclick="cycleStep('${entityId}','${step.id}')"`:''} style="${canUpdate?'':'opacity:.6;cursor:not-allowed'}" title="${task?.assigneeName||'Unassigned'} · ${st.replace('_',' ')}${canUpdate?'':' · no permission'}">
+        <div class="ps-name">${step.name}</div>
+        <div class="ps-dept">${task?.assigneeName||step.dept||'unassigned'}</div>
+      </div>`;
+    }).join('');
+    html = html.replace(/<div class="pipeline">.*?<\/div>/s, `<div class="pipeline">${pipeHtml}</div>`);
+  }
+
+  document.getElementById('ev-inner').innerHTML=html;
+  loadComments(entityId);
+}
+
+function getAllFields(type) {
+  if (!type) return [];
+  let fields = [];
+  // Support both parentId (frontend) and parent_id (from Supabase)
+  const parentId = type.parentId || type.parent_id;
+  if (parentId) {
+    const parent = S.types.find(t=>t.id===parentId);
+    if (parent) {
+      // Recursively get parent fields too
+      fields = [...getAllFields(parent)];
+    }
+  }
+  return [...fields, ...(type.fields||[])];
+}
+
+async function updateEntityStatus(id,status) {
+  await api('PUT',`/api/projects/${S.project.id}/entities/${id}`,{status});
+  const idx=S.entities.findIndex(e=>e.id===id); if(idx>-1) S.entities[idx].status=status;
+}
+
+async function cycleStep(entityId,stepId) {
+  const entity=S.entities.find(e=>e.id===entityId); if(!entity) return;
+  const states=['pending','in-progress','done','blocked'];
+  const cur=entity.pipeline?.[stepId]||'pending';
+  const next=states[(states.indexOf(cur)+1)%states.length];
+  if(!entity.pipeline) entity.pipeline={};
+  entity.pipeline[stepId]=next;
+  await api('PUT',`/api/projects/${S.project.id}/entities/${entityId}`,{pipeline:entity.pipeline});
+  openEntityView(entityId);
+}
+
+function closeEntityView() {
+  document.getElementById('entity-view').classList.remove('on');
+  document.getElementById('content').style.display='block';
+  document.getElementById('topbar-actions').innerHTML='';
+  goPage(S.currentPage,S.currentTypeId);
+}
+
+// ═══ CREATE/EDIT ENTITY ════════════════════════════════
+window._selTags=new Set();
+function openCreateEntity(typeId) {
+  window._selTags=new Set();
+  showModal('modal-lg','Create Entity',`
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Name *</label><input id="en-name" placeholder="e.g. Stone Axe, Iron Wolf, Darkwood"></div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select id="en-status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Entity Type *</label>
+      <select id="en-type" onchange="onEntityTypeChange()">
+        <option value="">Select type...</option>
+        ${S.types.map(t=>`<option value="${t.id}" ${t.id===typeId?'selected':''}>${t.icon} ${t.name}${t.parentId?' ('+S.types.find(p=>p.id===t.parentId)?.name+')':''}</option>`).join('')}
+      </select>
+    </div>
+    ${S.tags.length?`<div class="form-group"><label class="form-label">Tags</label>
+      <div class="chips" style="margin-top:6px" id="en-tags">
+        ${S.tags.map(tg=>`<span class="tag" style="cursor:pointer;background:var(--bg4);color:var(--text2);padding:4px 10px;border:1px solid var(--border)" onclick="toggleEntTag(this,'${tg.id}','${tg.color}')" data-id="${tg.id}">${tg.name}</span>`).join('')}
+      </div></div>`:''}
+    <div id="en-fields"></div>
+  `,[
+    {label:'Cancel',onclick:'closeModal()'},
+    {label:'Create',primary:true,onclick:'submitCreateEntity()'}
+  ]);
+  if(typeId) setTimeout(onEntityTypeChange,50);
+}
+
+function toggleEntTag(el,id,color) {
+  if(window._selTags.has(id)){window._selTags.delete(id);el.style.background='var(--bg4)';el.style.color='var(--text2)';el.style.borderColor='var(--border)';}
+  else{window._selTags.add(id);el.style.background=color+'33';el.style.color=color;el.style.borderColor=color+'66';}
+}
+
+function onEntityTypeChange() {
+  const typeId=v('en-type');
+  const type=S.types.find(t=>t.id===typeId);
+  const container=document.getElementById('en-fields');
+  if(!container) return;
+  const allFields=getAllFields(type);
+  if(!allFields.length){container.innerHTML='';return;}
+  const parentType=type?.parentId?S.types.find(t=>t.id===type.parentId):null;
+  container.innerHTML=`<hr><div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:12px">Fields ${parentType?`<span style="font-weight:400">(includes inherited fields from ${parentType.name})</span>`:''}</div>`+
+    allFields.map(f=>`<div class="form-group">
+      <label class="form-label">${f.name}${f.required?' *':''}</label>
+      ${f.description?`<div class="form-hint" style="margin-bottom:6px">ℹ️ ${f.description}</div>`:''}
+      ${buildFieldInput(f)}
+    </div>`).join('');
+}
+
+function buildFieldInput(f,val) {
+  const id=`ef-${f.id}`;
+  const v2=val;
+  switch(f.type){
+    case 'text': return `<input id="${id}" value="${v2||''}" placeholder="${f.placeholder||''}">`;
+    case 'richtext': return `<textarea id="${id}" style="min-height:100px" placeholder="${f.placeholder||''}">${v2||''}</textarea>`;
+    case 'number': return `<input id="${id}" type="number" value="${v2||''}">`;
+    case 'percentage': return `<input id="${id}" type="number" min="0" max="100" value="${v2||''}">`;
+    case 'boolean': return `<select id="${id}"><option value="false" ${v2!=='true'?'selected':''}>No</option><option value="true" ${v2==='true'?'selected':''}>Yes</option></select>`;
+    case 'enum': return `<select id="${id}">${(f.options||[]).map(o=>`<option ${o===v2?'selected':''}>${o}</option>`).join('')}</select>`;
+    case 'reference': return `<select id="${id}"><option value="">None</option>${S.entities.map(e=>`<option value="${e.id}" ${e.id===v2?'selected':''}>${e.name}</option>`).join('')}</select>`;
+    case 'reference_list': return `<select id="${id}" multiple style="height:80px">${S.entities.map(e=>`<option value="${e.id}" ${(v2||[]).includes(e.id)?'selected':''}>${e.name}</option>`).join('')}</select>`;
+    case 'loot_table': {
+      const rows=v2||[];
+      return `<div class="loot-tbl"><div class="loot-hd"><span>Entity</span><span>Min</span><span>Max</span><span>Chance%</span><span></span></div>
+        <div id="${id}-rows">${rows.map(r=>`<div class="loot-row-g">
+          <select><option value="">Select...</option>${S.entities.map(e=>`<option value="${e.id}" ${e.id===r.entityId?'selected':''}>${e.name}</option>`).join('')}</select>
+          <input type="number" value="${r.min||0}"><input type="number" value="${r.max||0}"><input type="number" value="${r.chance||0}">
+          <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="this.closest('.loot-row-g').remove()">✕</button>
+        </div>`).join('')}</div>
+      </div><button class="btn btn-sm" style="margin-top:6px" onclick="addLootRow('${id}')">+ Add Row</button>`;
+    }
+    default: return `<input id="${id}" value="${v2||''}">`;
+  }
+}
+
+function addLootRow(fid) {
+  const c=document.getElementById(fid+'-rows');
+  const div=document.createElement('div'); div.className='loot-row-g';
+  div.innerHTML=`<select><option value="">Select entity...</option>${S.entities.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select>
+    <input type="number" placeholder="1"><input type="number" placeholder="1"><input type="number" placeholder="100">
+    <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="this.closest('.loot-row-g').remove()">✕</button>`;
+  c.appendChild(div);
+}
+
+function collectFields(type) {
+  const allFields=getAllFields(type);
+  const fields={};
+  allFields.forEach(f=>{
+    const el=document.getElementById(`ef-${f.id}`);
+    if(!el) return;
+    if(f.type==='reference_list') fields[f.id]=[...el.selectedOptions].map(o=>o.value);
+    else if(f.type==='loot_table') {
+      fields[f.id]=[...document.querySelectorAll(`#ef-${f.id}-rows .loot-row-g`)].map(row=>{
+        const sel=row.querySelector('select'); const ins=row.querySelectorAll('input');
+        const ref=S.entities.find(e=>e.id===sel?.value);
+        return {entityId:sel?.value||'',name:ref?.name||'',min:ins[0]?.value||0,max:ins[1]?.value||0,chance:ins[2]?.value||0};
+      }).filter(r=>r.entityId);
+    } else fields[f.id]=el.value;
+  });
+  return fields;
+}
+
+async function submitCreateEntity() {
+  const name=v('en-name'); const typeId=v('en-type'); const status=v('en-status');
+  if(!name||!typeId) return alert('Name and type are required');
+  const type=S.types.find(t=>t.id===typeId);
+  const fields=collectFields(type);
+  const entity=await api('POST',`/api/projects/${S.project.id}/entities`,{name,typeId,status,tags:[...window._selTags],fields});
+  S.entities.push(entity);
+  renderSidebarTypes();
+  closeModal();
+  openEntityView(entity.id);
+}
+
+async function openEditEntity(entityId) {
+  const entity=S.entities.find(e=>e.id===entityId); if(!entity) return;
+  window._editEntityId = entityId;
+  window._editEntityId = entityId;
+  const type=S.types.find(t=>t.id===entity.typeId);
+  const allFields=getAllFields(type);
+  const parentType=type?.parentId?S.types.find(t=>t.id===type.parentId):null;
+  window._selTags=new Set(entity.tags||[]);
+  const iconHtml = `<div class="form-group"><label class="form-label">Entity Icon / Image</label>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+      <div id="icon-preview" style="width:60px;height:60px;border-radius:var(--radius);background:var(--bg4);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;flex-shrink:0">
+        ${entity.icon_url ? `<img src="${entity.icon_url}" style="width:100%;height:100%;object-fit:cover">` : (S.types.find(t=>t.id===entity.typeId)?.icon||'📦')}
+      </div>
+      <div>
+        <input type="file" id="icon-file" accept="image/*" style="display:none" onchange="previewIcon(this)">
+        <button class="btn btn-sm" onclick="document.getElementById('icon-file').click()">📁 Choose Image</button>
+        ${entity.icon_url ? `<button class="btn btn-sm btn-danger" onclick="clearIcon()" style="margin-left:6px">✕ Remove</button>` : ''}
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">PNG, JPG, GIF up to 2MB. Shows on entity page.</div>
+      </div>
+    </div>
+  </div>`;
+  window._clearIcon = false;
+  const fieldHtml=allFields.length?`<hr>
+    <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:12px">Fields ${parentType?`<span style="font-weight:400">(includes fields from ${parentType.name})</span>`:''}</div>`+
+    allFields.map(f=>`<div class="form-group">
+      <label class="form-label">${f.name}${f.required?' *':''}</label>
+      ${f.description?`<div class="form-hint" style="margin-bottom:6px">ℹ️ ${f.description}</div>`:''}
+      ${buildFieldInput(f,entity.fields?.[f.id])}
+    </div>`).join(''):'';
+  const tagHtml=S.tags.length?`<div class="form-group"><label class="form-label">Tags</label>
+    <div class="chips" style="margin-top:6px">
+      ${S.tags.map(tg=>{const sel=(entity.tags||[]).includes(tg.id);return `<span class="tag" style="cursor:pointer;${sel?`background:${tg.color}33;color:${tg.color};border:1px solid ${tg.color}66`:'background:var(--bg4);color:var(--text2);border:1px solid var(--border)'};padding:4px 10px" onclick="toggleEntTag(this,'${tg.id}','${tg.color}')" data-id="${tg.id}">${tg.name}</span>`;}).join('')}
+    </div></div>`:'';
+  showModal('modal-lg',`Edit: ${entity.name}`,`
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Name</label><input id="ed-name" value="${entity.name}"></div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select id="ed-status">${STATUSES.map(s=>`<option value="${s}" ${entity.status===s?'selected':''}>${s}</option>`).join('')}</select>
+      </div>
+    </div>
+    ${iconHtml}
+    ${tagHtml}${fieldHtml}
+  `,[{label:'Cancel',onclick:'closeModal()'},{label:'Save',primary:true,onclick:`submitEditEntity('${entityId}')`}]);
+}
+
+async function submitEditEntity(id) {
+  const entity=S.entities.find(e=>e.id===id);
+  const type=S.types.find(t=>t.id===entity?.typeId);
+  const fields=collectFields(type);
+  // Handle icon upload
+  const iconUrl = await uploadEntityIcon(id);
+  const updateData = {name:v('ed-name'),status:v('ed-status'),tags:[...window._selTags],fields};
+  if (iconUrl !== null) updateData.icon_url = iconUrl;
+  const updated=await api('PUT',`/api/projects/${S.project.id}/entities/${id}`,updateData);
+  const idx=S.entities.findIndex(e=>e.id===id); if(idx>-1) S.entities[idx]=updated;
+  closeModal(); openEntityView(id);
+}
+
+async function deleteEntity(id) {
+  if(!confirm('Delete this entity?')) return;
+  await api('DELETE',`/api/projects/${S.project.id}/entities/${id}`);
+  S.entities=S.entities.filter(e=>e.id!==id);
+  renderSidebarTypes(); closeEntityView();
+}
+
+// ═══ COMMENTS ═══════════════════════════════════════════
+async function loadComments(entityId) {
+  const comments=await api('GET',`/api/comments/${entityId}`);
+  document.getElementById('ev-comments').innerHTML=comments.length?comments.map(c=>`
+    <div class="cmt">
+      <div class="cmt-hd">
+        <div class="avatar avatar-sm">${c.authorName[0].toUpperCase()}</div>
+        <span class="cmt-author">${c.authorName}</span>
+        <span class="badge cmt-type-${c.type}" style="font-size:10px;padding:1px 6px">${c.type.replace('_',' ')}</span>
+        <span class="cmt-time">${ago(c.createdAt)}</span>
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-top:6px">${linkifyText(c.text)}</div>
+      ${!c.resolved?`<button class="btn btn-xs btn-success" style="margin-top:8px" onclick="resolveComment('${c.id}')">✓ Resolve</button>`:'<div style="font-size:11px;color:var(--green);margin-top:6px">✓ Resolved</div>'}
+    </div>`).join(''):'<p style="color:var(--text3);font-size:12px;text-align:center;padding:16px 0">No activity yet</p>';
+}
+async function submitComment() {
+  const text=document.getElementById('cmt-input').value.trim();
+  if(!text||!S.currentEntityId) return;
+  await api('POST','/api/comments',{entityId:S.currentEntityId,text,type:v('cmt-type')});
+  document.getElementById('cmt-input').value='';
+  loadComments(S.currentEntityId);
+}
+async function resolveComment(id) {
+  await api('PUT',`/api/comments/${id}`,{resolved:true});
+  loadComments(S.currentEntityId);
+}
+
+// ═══ SCHEMA STUDIO ══════════════════════════════════════
+function renderSchema() {
+  const el=document.getElementById('schema-list');
+  if(!S.types.length){el.innerHTML=`<div class="empty"><div class="empty-icon">⚙️</div><h3>No entity types yet</h3><p>Create your first type or create a project with a genre template to auto-populate</p></div>`;return;}
+  const groups={};
+  S.types.forEach(t=>{if(!groups[t.category])groups[t.category]=[];groups[t.category].push(t);});
+  el.innerHTML=CATEGORIES.filter(c=>groups[c.id]).map(cat=>`
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">${cat.icon} ${cat.name} — <span style="font-weight:400;font-size:11px">${cat.desc}</span></div>
+      ${groups[cat.id].map(type=>{
+        const parent=type.parentId?S.types.find(t=>t.id===type.parentId):null;
+        const children=S.types.filter(t=>t.parentId===type.id);
+        return `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);${type.parentId?'margin-left:20px;border-left:2px solid var(--border2);padding-left:12px':''}">
+          <span style="font-size:20px;margin-top:2px">${type.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="font-weight:600;font-size:14px">${type.name}</span>
+              ${parent?`<span style="font-size:11px;color:var(--text3)">extends ${parent.name}</span>`:''}
+              <span style="font-size:11px;color:var(--text3)">${type.fields?.length||0} fields · ${S.entities.filter(e=>e.typeId===type.id).length} entities</span>
+              ${children.length?`<span style="font-size:11px;color:var(--accent2)">${children.length} sub-types</span>`:''}
+            </div>
+            <div class="chips">${(type.fields||[]).map(f=>`<span class="badge badge-draft" style="font-size:10px" title="${f.description||''}">${f.name} <span style="opacity:.5">${f.type}</span></span>`).join('')||'<span style="font-size:11px;color:var(--text3)">No fields defined</span>'}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            ${canEditDesign()?`<button class="btn btn-sm" onclick="openCreateType('${type.id}')">+ Sub-type</button>`:''}
+            ${canEditDesign()?`<button class="btn btn-sm" onclick="openEditType('${type.id}')">✏️</button>`:''}
+            ${isDirector()?`<button class="btn btn-sm btn-danger" onclick="deleteType('${type.id}')">🗑</button>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+// ═══ TYPE EDITOR ════════════════════════════════════════
+function openCreateType(parentId) {
+  window._tf=[]; window._tp=[];
+  const parent=parentId?S.types.find(t=>t.id===parentId):null;
+  if(parent&&parent.pipeline?.length) window._tp=JSON.parse(JSON.stringify(parent.pipeline));
+  showModal('modal-lg', parent?`Create Sub-type of ${parent.name}`:'Create Entity Type', buildTypeForm(null,parentId),[
+    {label:'Cancel',onclick:'closeModal()'},
+    {label:'Create Type',primary:true,onclick:'submitCreateType()'}
+  ]);
+  renderTF(); renderTP();
+  if(parent) {
+    // Auto-select category from parent
+    document.querySelectorAll('.cat-pill').forEach(p=>p.classList.toggle('on',p.dataset.cat===parent.category));
+  }
+}
+
+function buildTypeForm(type, parentId) {
+  const selCat=type?.category||'entity';
+  const parent=parentId?S.types.find(t=>t.id===parentId):(type?.parentId?S.types.find(t=>t.id===type.parentId):null);
+  return `
+    ${parent?`<div style="padding:10px 14px;background:var(--accent-bg);border:1px solid var(--border2);border-radius:var(--radius);margin-bottom:16px;font-size:13px;color:var(--accent2)">
+      ↳ Sub-type of <strong>${parent.name}</strong> — inherits all ${parent.fields?.length||0} fields from parent
+    </div>`:''}
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Name *</label><input id="tf-name" value="${type?.name||''}" placeholder="e.g. WEAPON, Wolf, Darkwood"></div>
+      <div class="form-group"><label class="form-label">Icon (emoji)</label><input id="tf-icon" value="${type?.icon||'📦'}" style="font-size:18px"></div>
+    </div>
+    ${!parent?`<div class="form-group">
+      <label class="form-label">Category</label>
+      <div class="cat-grid" id="tf-cats">
+        ${CATEGORIES.map(c=>`<div class="cat-pill ${c.id===selCat?'on':''}" onclick="selectCat('${c.id}',this)" data-cat="${c.id}">
+          <div class="cp-icon">${c.icon}</div><div class="cp-name">${c.name}</div><div class="cp-desc">${c.desc}</div>
+        </div>`).join('')}
+      </div>
+    </div>`:`<input type="hidden" id="tf-cat-override" value="${parent.category}">`}
+    <div class="form-group"><label class="form-label">Color</label>
+      <div class="color-grid">${COLORS.map(c=>`<div class="cswatch ${(type?.color||COLORS[0])===c?'on':''}" style="background:${c}" onclick="selectColor(this)" data-c="${c}"></div>`).join('')}</div>
+    </div>
+    <hr>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div>
+        <div style="font-size:13px;font-weight:600">Fields ${parent?`<span style="font-size:11px;font-weight:400;color:var(--text3)">— add only fields unique to this sub-type</span>`:''}</div>
+      </div>
+      <button class="btn btn-sm" onclick="addTF()">+ Add Field</button>
+    </div>
+    <div id="tf-list"></div>
+    <hr>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600">Pipeline Steps</div>
+      <button class="btn btn-sm" onclick="addTP()">+ Add Step</button>
+    </div>
+    <div id="tp-list"></div>
+  `;
+}
+
+function selectCat(id,el) {
+  document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  const template=S.pipelines[id]||[];
+  window._tp=JSON.parse(JSON.stringify(template));
+  renderTP();
+}
+function selectColor(el){document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('on'));el.classList.add('on');}
+function getSelColor(){return document.querySelector('.cswatch.on')?.dataset.c||COLORS[0];}
+function getSelCat(){return document.querySelector('.cat-pill.on')?.dataset.cat||document.getElementById('tf-cat-override')?.value||'entity';}
+
+function addTF(f){window._tf.push(f||{id:Date.now()+'',name:'',type:'text',description:'',required:false});renderTF();}
+function addTP(s){window._tp.push(s||{id:Date.now()+'',name:'',dept:''});renderTP();}
+
+function renderTF() {
+  document.getElementById('tf-list').innerHTML=(window._tf||[]).map((f,i)=>`
+    <div class="fe-row">
+      <div class="fe-col"><span class="fe-col-label">Field Name</span><input placeholder="e.g. Base Damage" value="${f.name}" onchange="window._tf[${i}].name=this.value"></div>
+      <div class="fe-col"><span class="fe-col-label">Type</span>
+        <select onchange="window._tf[${i}].type=this.value">
+          ${FIELD_TYPES.map(t=>`<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fe-col"><span class="fe-col-label">Description (shown to team)</span><textarea placeholder="Explain what this field means and how to fill it..." onchange="window._tf[${i}].description=this.value" style="min-height:52px">${f.description||''}</textarea></div>
+      <div class="fe-col"><span class="fe-col-label">Placeholder</span><input placeholder="e.g. Enter value..." value="${f.placeholder||''}" onchange="window._tf[${i}].placeholder=this.value"></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center;padding-top:16px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);white-space:nowrap"><input type="checkbox" style="width:auto" ${f.required?'checked':''} onchange="window._tf[${i}].required=this.checked"> Req</label>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="window._tf.splice(${i},1);renderTF()">✕</button>
+      </div>
+    </div>`).join('')||'<p style="color:var(--text3);font-size:12px;padding:4px 0">No fields. Click + Add Field.</p>';
+}
+
+function renderTP() {
+  document.getElementById('tp-list').innerHTML=(window._tp||[]).map((s,i)=>`
+    <div class="pipe-editor-row">
+      <input placeholder="Step name (e.g. Mesh Done)" value="${s.name}" onchange="window._tp[${i}].name=this.value">
+      <select onchange="window._tp[${i}].dept=this.value"><option value="">No dept</option>${DEPTS.map(d=>`<option value="${d}" ${s.dept===d?'selected':''}>${d}</option>`).join('')}</select>
+      <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="window._tp.splice(${i},1);renderTP()">✕</button>
+    </div>`).join('')||'<p style="color:var(--text3);font-size:12px;padding:4px 0">No steps. Select a category to auto-fill or add manually.</p>';
+}
+
+async function submitCreateType() {
+  const name=v('tf-name'); if(!name) return alert('Name required');
+  const parentId=document.getElementById('tf-cat-override') ? S.types.find(t=>t.category===document.getElementById('tf-cat-override').value&&t.name===document.querySelector('.cat-pill.on')?.dataset.cat)?.id : null;
+  // Get parentId from form context
+  const parentBanner=document.querySelector('[id^="tf-cat-override"]');
+  const pId = parentBanner?.value ? window._currentParentId : null;
+  const type=await api('POST',`/api/projects/${S.project.id}/entity-types`,{
+    name, icon:v('tf-icon')||'📦', category:getSelCat(), color:getSelColor(),
+    fields:window._tf||[], pipeline:window._tp||[], parentId:window._currentParentId||null
+  });
+  S.types.push(type);
+  window._currentParentId=null;
+  renderSidebarTypes(); closeModal(); renderSchema();
+}
+
+async function openEditType(typeId) {
+  const type=S.types.find(t=>t.id===typeId); if(!type) return;
+  window._tf=JSON.parse(JSON.stringify(type.fields||[]));
+  window._tp=JSON.parse(JSON.stringify(type.pipeline||[]));
+  window._currentParentId=type.parentId||null;
+  showModal('modal-lg',`Edit: ${type.name}`,buildTypeForm(type,type.parentId),[
+    {label:'Cancel',onclick:'closeModal()'},{label:'Save',primary:true,onclick:`submitEditType('${typeId}')`}
+  ]);
+  renderTF(); renderTP();
+}
+
+async function submitEditType(id) {
+  const name=v('tf-name'); if(!name) return alert('Name required');
+  const updated=await api('PUT',`/api/projects/${S.project.id}/entity-types/${id}`,{
+    name, icon:v('tf-icon')||'📦', category:getSelCat(), color:getSelColor(),
+    fields:window._tf||[], pipeline:window._tp||[]
+  });
+  const idx=S.types.findIndex(t=>t.id===id); if(idx>-1) S.types[idx]=updated;
+  renderSidebarTypes(); closeModal(); renderSchema();
+}
+
+async function deleteType(id) {
+  if(!confirm('Delete this entity type? Entities of this type will lose their type.')) return;
+  await api('DELETE',`/api/projects/${S.project.id}/entity-types/${id}`);
+  S.types=S.types.filter(t=>t.id!==id);
+  renderSidebarTypes(); renderSchema();
+}
+
+// Override openCreateType to store parentId
+const _origOpenCreateType=openCreateType;
+window.openCreateType=function(parentId) {
+  window._currentParentId=parentId||null;
+  _origOpenCreateType(parentId);
+};
+
+// ═══ TAGS ═══════════════════════════════════════════════
+function renderTags() {
+  const el=document.getElementById('tags-list');
+  if(!S.tags.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🏷</div><h3>No tags yet</h3><p>Create damage types, status effects, rarities, traits...</p></div>`;return;}
+  const groups={};
+  S.tags.forEach(t=>{if(!groups[t.category])groups[t.category]=[];groups[t.category].push(t);});
+  el.innerHTML=Object.entries(groups).map(([cat,tags])=>`
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">${cat}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+        ${tags.map(tg=>`<div style="padding:12px;border:1px solid ${tg.color}33;border-radius:var(--radius);background:${tg.color}11">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <span style="font-weight:600;color:${tg.color};font-size:13px">${tg.name}</span>
+            <div style="display:flex;gap:3px">
+              <button class="btn btn-ghost btn-xs" onclick="openEditTag('${tg.id}')">✏️</button>
+              <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="deleteTag('${tg.id}')">🗑</button>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.4">${tg.description||'No description'}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:5px">${S.entities.filter(e=>(e.tags||[]).includes(tg.id)).length} entities</div>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function openCreateTag() {
+  showModal('','Create Tag',`
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Name *</label><input id="tg-name" placeholder="e.g. Slashing, Burning, Rare"></div>
+      <div class="form-group"><label class="form-label">Category</label><input id="tg-cat" placeholder="e.g. Damage Type, Rarity, Status Effect"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label><textarea id="tg-desc" style="min-height:70px" placeholder="What does this tag represent or cause? What game effect does it have?"></textarea></div>
+    <div class="form-group"><label class="form-label">Color</label>
+      <div class="color-grid">${COLORS.map(c=>`<div class="cswatch" style="background:${c}" onclick="selectColor(this)" data-c="${c}"></div>`).join('')}</div>
+    </div>`,[
+    {label:'Cancel',onclick:'closeModal()'},{label:'Create Tag',primary:true,onclick:'submitCreateTag()'}
+  ]);
+  document.querySelector('.cswatch').classList.add('on');
+}
+async function submitCreateTag() {
+  const name=v('tg-name'); if(!name) return alert('Name required');
+  const tag=await api('POST',`/api/projects/${S.project.id}/tags`,{name,category:v('tg-cat')||'general',description:document.getElementById('tg-desc').value,color:getSelColor()});
+  S.tags.push(tag); closeModal(); renderTags();
+}
+async function openEditTag(id) {
+  const tg=S.tags.find(t=>t.id===id); if(!tg) return;
+  showModal('',`Edit: ${tg.name}`,`
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Name</label><input id="tg-name" value="${tg.name}"></div>
+      <div class="form-group"><label class="form-label">Category</label><input id="tg-cat" value="${tg.category}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label><textarea id="tg-desc" style="min-height:70px">${tg.description||''}</textarea></div>
+    <div class="form-group"><label class="form-label">Color</label>
+      <div class="color-grid">${COLORS.map(c=>`<div class="cswatch ${tg.color===c?'on':''}" style="background:${c}" onclick="selectColor(this)" data-c="${c}"></div>`).join('')}</div>
+    </div>`,[
+    {label:'Cancel',onclick:'closeModal()'},{label:'Save',primary:true,onclick:`submitEditTag('${id}')`}
+  ]);
+}
+async function submitEditTag(id) {
+  const updated=await api('PUT',`/api/projects/${S.project.id}/tags/${id}`,{name:v('tg-name'),category:v('tg-cat'),description:document.getElementById('tg-desc').value,color:getSelColor()});
+  const idx=S.tags.findIndex(t=>t.id===id); if(idx>-1) S.tags[idx]=updated;
+  closeModal(); renderTags();
+}
+async function deleteTag(id) {
+  if(!confirm('Delete tag?')) return;
+  await api('DELETE',`/api/projects/${S.project.id}/tags/${id}`);
+  S.tags=S.tags.filter(t=>t.id!==id); renderTags();
+}
+
+// ═══ PIPELINES ══════════════════════════════════════════
+function renderPipelinesEditor() {
+  const cats=CATEGORIES.filter(c=>c.id!=='concept');
+  document.getElementById('pipelines-editor').innerHTML=cats.map(cat=>`
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="card-title" style="margin:0">${cat.icon} ${cat.name}</div>
+        <button class="btn btn-sm" onclick="addPipelineStep('${cat.id}')">+ Step</button>
+      </div>
+      <div id="pipe-${cat.id}">
+        ${(S.pipelines[cat.id]||[]).map((step,i)=>`
+          <div class="pipe-editor-row">
+            <input placeholder="Step name" value="${step.name}" onchange="S.pipelines['${cat.id}'][${i}].name=this.value">
+            <select onchange="S.pipelines['${cat.id}'][${i}].dept=this.value"><option value="">No dept</option>${DEPTS.map(d=>`<option value="${d}" ${step.dept===d?'selected':''}>${d}</option>`).join('')}</select>
+            <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removePipelineStep('${cat.id}',${i})">✕</button>
+          </div>`).join('')||'<p style="color:var(--text3);font-size:12px">No steps</p>'}
+      </div>
+    </div>`).join('');
+}
+function addPipelineStep(catId) { if(!S.pipelines[catId]) S.pipelines[catId]=[]; S.pipelines[catId].push({id:Date.now()+'',name:'',dept:''}); renderPipelinesEditor(); }
+function removePipelineStep(catId,i) { S.pipelines[catId].splice(i,1); renderPipelinesEditor(); }
+async function savePipelines() {
+  await api('PUT',`/api/projects/${S.project.id}/pipelines`,S.pipelines);
+  alert('Saved!');
+}
+
+// ═══ TEAM ═══════════════════════════════════════════════
+async function renderTeam() {
+  const isDir = S.project?.ownerId === S.user?.id;
+  document.getElementById('team-actions').innerHTML = isDir ? `
+    <button class="btn btn-sm" onclick="openManageRoles()">⚙️ Manage Roles</button>
+    <button class="btn btn-sm" onclick="openManageDepts()">🏢 Manage Departments</button>
+    <button class="btn btn-sm" onclick="regenerateCode()">🔄 New Code</button>
+  ` : '';
+  document.getElementById('invite-section').style.display = isDir ? 'block' : 'none';
+  if (isDir) document.getElementById('invite-code-display').textContent = S.project.inviteCode;
+  const members = await api('GET',`/api/projects/${S.project.id}/members`);
+  document.getElementById('team-list').innerHTML = `<div class="card" style="padding:0;overflow:hidden">
+    <table class="tbl"><thead><tr><th>Member</th><th>Role(s)</th><th>Department</th>${isDir?'<th></th>':''}</tr></thead>
+    <tbody>${members.map(m=>`<tr>
+      <td><div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar avatar-sm">${m.username[0].toUpperCase()}</div>
+        <span style="font-weight:500">${m.username}</span>
+        ${m.userId===S.user?.id?'<span class="badge badge-accent" style="font-size:10px">You</span>':''}
+      </div></td>
+      <td>${isDir && m.userId!==S.user?.id ? `
+        <select style="font-size:12px;padding:4px 8px;width:160px" onchange="updateMember('${m.userId}','role',this.value)">
+          <option value="pending" ${m.role==='pending'?'selected':''}>⏳ Pending</option>
+          ${(S.project.roles||[]).map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${r.replace(/_/g,' ')}</option>`).join('')}
+        </select>` : `<span class="badge badge-draft">${(m.role||'viewer').replace(/_/g,' ')}</span>`}
+      </td>
+      <td>${isDir && m.userId!==S.user?.id ? `
+        <select style="font-size:12px;padding:4px 8px;width:140px" onchange="updateMember('${m.userId}','department',this.value)">
+          <option value="">None</option>
+          ${(S.project.departments||[]).map(d=>`<option value="${d}" ${m.department===d?'selected':''}>${d}</option>`).join('')}
+        </select>` : m.department||'—'}
+      </td>
+      ${isDir?`<td>${m.userId!==S.user?.id?`<button class="btn btn-xs btn-danger" onclick="removeMember('${m.userId}')">Remove</button>`:'—'}</td>`:''}`
+    ).join('')}
+    </tbody></table></div>`;
+}
+
+// Permission categories
+const PERM_CATEGORIES = [
+  { id:'entities', label:'Entities', cols:['view','create','edit','delete'] },
+  { id:'schema',   label:'Schema',   cols:['view','create','edit','delete'] },
+  { id:'pipeline', label:'Pipeline', cols:['view','own_dept','all'] },
+  { id:'tasks',    label:'Tasks',    cols:['view','assign'] },
+  { id:'reports',  label:'Reports',  cols:['view','export'] },
+  { id:'team',     label:'Team',     cols:['view','manage'] },
+];
+const PERM_COL_LABELS = {view:'View',create:'Create',edit:'Edit',delete:'Delete',own_dept:'Own Dept',all:'All Steps',assign:'Assign',export:'Export',manage:'Manage'};
+const ALL_COLS = ['view','create','edit','delete','own_dept','all','assign','export','manage'];
+
+function getDefaultPerms(roleName) {
+  const r = (roleName||'').toLowerCase();
+  if (r.includes('director')) return {entities:['view','create','edit','delete'],schema:['view','create','edit','delete'],pipeline:['view','all'],tasks:['view','assign'],reports:['view','export'],team:['view','manage']};
+  if (r.includes('lead')) return {entities:['view','create','edit'],schema:['view','create','edit'],pipeline:['view','all'],tasks:['view','assign'],reports:['view','export'],team:['view']};
+  if (r.includes('designer')) return {entities:['view','create','edit'],schema:['view','create'],pipeline:['view','own_dept'],tasks:['view'],reports:['view'],team:['view']};
+  if (r.includes('artist')||r.includes('animator')||r.includes('vfx')||r.includes('art')) return {entities:['view'],schema:['view'],pipeline:['view','own_dept'],tasks:['view'],reports:['view'],team:['view']};
+  if (r.includes('developer')||r.includes('programmer')) return {entities:['view'],schema:['view'],pipeline:['view','own_dept'],tasks:['view'],reports:['view'],team:['view']};
+  if (r.includes('qa')) return {entities:['view'],schema:['view'],pipeline:['view','own_dept'],tasks:['view'],reports:['view'],team:['view']};
+  if (r.includes('manager')||r.includes('pm')) return {entities:['view','create','edit'],schema:['view'],pipeline:['view','all'],tasks:['view','assign'],reports:['view','export'],team:['view','manage']};
+  if (r.includes('marketing')) return {entities:['view'],schema:['view'],pipeline:['view'],tasks:['view'],reports:['view','export'],team:['view']};
+  return {entities:['view'],schema:['view'],pipeline:['view'],tasks:['view'],reports:['view'],team:['view']};
+}
+
+function togglePerm(role, category, col, checked) {
+  if (!window._editPerms[role]) window._editPerms[role] = getDefaultPerms(role);
+  if (!window._editPerms[role][category]) window._editPerms[role][category] = [];
+  if (checked) {
+    if (!window._editPerms[role][category].includes(col)) window._editPerms[role][category].push(col);
+    if (category==='pipeline'&&col==='own_dept') window._editPerms[role][category]=window._editPerms[role][category].filter(function(c){return c!=='all';});
+    if (category==='pipeline'&&col==='all') window._editPerms[role][category]=window._editPerms[role][category].filter(function(c){return c!=='own_dept';});
+  } else {
+    window._editPerms[role][category]=window._editPerms[role][category].filter(function(c){return c!==col;});
+  }
+}
+
+function openManageRoles() {
+  const roles = S.project.roles || [];
+  const perms = S.project.permissions || {};
+  window._editRoles = roles.slice();
+  window._editPerms = JSON.parse(JSON.stringify(perms));
+  var matrix = window._editRoles.map(function(role, ri) {
+    var rp = window._editPerms[role] || getDefaultPerms(role);
+    var rows = PERM_CATEGORIES.map(function(cat) {
+      var cells = ALL_COLS.map(function(col) {
+        var applicable = cat.cols.indexOf(col) !== -1;
+        if (!applicable) return '<td style="text-align:center;padding:4px"><span style="color:var(--border2)">—</span></td>';
+        var checked = applicable && (rp[cat.id]||[]).indexOf(col) !== -1;
+        return '<td style="text-align:center;padding:4px"><input type="checkbox"' + (checked?' checked':'') + ' style="width:auto;cursor:pointer;accent-color:var(--accent)" onchange="togglePerm(\'' + role + '\',\'' + cat.id + '\',\'' + col + '\',this.checked)"></td>';
+      }).join('');
+      return '<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;color:var(--text2);font-weight:500;white-space:nowrap">' + cat.label + '</td>' + cells + '</tr>';
+    }).join('');
+    return '<div style="margin-bottom:16px;padding:14px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
+      '<input value="' + role + '" style="flex:1;font-weight:600;font-size:14px" onchange="window._editRoles[' + ri + ']=this.value">' +
+      '<button class="btn btn-xs" onclick="window._editPerms[window._editRoles[' + ri + ']]=getDefaultPerms(window._editRoles[' + ri + ']);openManageRoles()" title="Reset to defaults">↺</button>' +
+      '<button class="btn btn-xs btn-danger" onclick="window._editRoles.splice(' + ri + ',1);openManageRoles()">✕</button>' +
+      '</div>' +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">' +
+      '<thead><tr><th style="text-align:left;padding:4px 8px;color:var(--text3);width:80px">Category</th>' +
+      ALL_COLS.map(function(c){return '<th style="text-align:center;padding:4px 6px;color:var(--text3);min-width:50px">' + PERM_COL_LABELS[c] + '</th>';}).join('') +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  }).join('');
+
+  showModal('modal-lg', 'Manage Roles & Permissions',
+    '<p style="color:var(--text3);font-size:13px;margin-bottom:16px">Define what each role can do. <strong style="color:var(--text2)">Director always has full access.</strong><br>Pipeline: <em>Own Dept</em> = only their department steps. <em>All Steps</em> = any step.</p>' +
+    '<div id="roles-matrix">' + matrix + '</div>' +
+    '<button class="btn btn-sm" onclick="addRoleItem()" style="margin-top:8px">+ Add Role</button>',
+    [{label:'Cancel',onclick:'closeModal()'},{label:'Save',primary:true,onclick:'saveRoles()'}]
+  );
+}
+
+function addRoleItem() {
+  var name = 'new_role';
+  window._editRoles.push(name);
+  window._editPerms[name] = getDefaultPerms(name);
+  openManageRoles();
+}
+
+async function saveRoles() {
+  const roles = window._editRoles.filter(function(r){return r.trim();});
+  const updated = await api('PUT', '/api/projects/' + S.project.id, {roles: roles, permissions: window._editPerms});
+  S.project.roles = updated.roles || roles;
+  S.project.permissions = updated.permissions || window._editPerms;
+  closeModal();
+  renderTeam();
+}
+
+function openManageDepts() {
+  const depts = S.project.departments || [];
+  window._editDepts = depts.slice();
+  showModal('', 'Manage Departments',
+    '<p style="color:var(--text3);font-size:13px;margin-bottom:16px">Departments are used for pipeline step ownership and team organization.</p>' +
+    '<div id="depts-list">' +
+    depts.map(function(d,i){return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input value="' + d + '" style="flex:1" onchange="window._editDepts[' + i + ']=this.value"><button class="btn btn-xs btn-danger" onclick="window._editDepts.splice(' + i + ',1);openManageDepts()">✕</button></div>';}).join('') +
+    '</div><button class="btn btn-sm" onclick="addDeptItem()" style="margin-top:8px">+ Add Department</button>',
+    [{label:'Cancel',onclick:'closeModal()'},{label:'Save',primary:true,onclick:'saveDepts()'}]
+  );
+}
+
+function addDeptItem() {
+  window._editDepts.push('new_department');
+  openManageDepts();
+}
+
+async function saveDepts() {
+  const departments = window._editDepts.filter(function(d){return d.trim();});
+  const updated = await api('PUT', '/api/projects/' + S.project.id, {departments: departments});
+  S.project.departments = updated.departments || departments;
+  closeModal();
+  renderTeam();
+}
+
+async function updateMember(userId, field, value) {
+  await api('PUT',`/api/projects/${S.project.id}/members/${userId}`,{[field]:value});
+}
+async function removeMember(userId) {
+  if(!confirm('Remove this member from the project?')) return;
+  await api('DELETE',`/api/projects/${S.project.id}/members/${userId}`);
+  renderTeam();
+}
+async function regenerateCode() {
+  const prefix = S.project.name.replace(/[^a-zA-Z]/g,'').toUpperCase().slice(0,4).padEnd(4,'X');
+  const code = `${prefix}-${Math.floor(1000+Math.random()*9000)}`;
+  const updated = await api('PUT',`/api/projects/${S.project.id}`,{inviteCode:code});
+  S.project.inviteCode = updated.inviteCode;
+  document.getElementById('invite-code-display').textContent = updated.inviteCode;
+}
+function copyInviteCode() {
+  navigator.clipboard.writeText(S.project?.inviteCode||'');
+  const el = document.getElementById('invite-code-display');
+  const orig = el.textContent;
+  el.textContent = 'Copied!';
+  setTimeout(()=>el.textContent=orig, 1500);
+}
+async function sendInviteEmail() {
+  const email = v('invite-email');
+  if (!email) return alert('Enter an email address');
+  alert(`Invite code for ${email}:\n\n${S.project.inviteCode}\n\nShare this code — they enter it when registering as a Team Member.`);
+}
+
+// ═══ MODAL ══════════════════════════════════════════════
+function showModal(size,title,body,actions) {
+  const box=document.getElementById('modal-box');
+  box.className='modal '+(size||'');
+  box.innerHTML=`<div class="modal-hd"><div class="modal-title">${title}</div><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-bd">${body}</div>
+    <div class="modal-ft">${(actions||[]).map(a=>`<button class="btn ${a.primary?'btn-primary':''}" onclick="${a.onclick}">${a.label}</button>`).join('')}</div>`;
+  document.getElementById('overlay').style.display='flex';
+}
+function closeModal(){document.getElementById('overlay').style.display='none';}
+
+// ═══ UTILS ══════════════════════════════════════════════
+function v(id){return document.getElementById(id)?.value||'';}
+function ago(d){if(!d)return'—';const m=Math.floor((Date.now()-new Date(d))/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
+
+// ═══ ENVIRONMENT ════════════════════════════════════════
+async function updateEntityEnv(id, env) {
+  await api('PUT',`/api/projects/${S.project.id}/entities/${id}`,{environment:env});
+  const idx=S.entities.findIndex(e=>e.id===id); if(idx>-1) S.entities[idx].environment=env;
+}
+
+const ENV_LABELS = {not_in_engine:'Not In Engine', zoo:'🦁 ZOO', gym:'🏋️ GYM', playable_build:'🎮 Playable Build', iteration:'🔄 Iteration'};
+const ENV_COLORS = {not_in_engine:'var(--text3)', zoo:'#10b981', gym:'#3b82f6', playable_build:'#a855f7', iteration:'#ef4444'};
+
+// ═══ TASK ASSIGNMENT ════════════════════════════════════
+async function openAssignModal(entityId) {
+  const entity = S.entities.find(e=>e.id===entityId);
+  const type = S.types.find(t=>t.id===entity?.typeId);
+  if (!type?.pipeline?.length) return alert('This entity type has no pipeline steps defined.');
+  const members = await api('GET',`/api/projects/${S.project.id}/members`);
+  const tasks = await api('GET',`/api/projects/${S.project.id}/tasks?entityId=${entityId}`);
+
+  showModal('modal-lg', `Assign Pipeline Steps — ${entity.name}`, `
+    <p style="color:var(--text3);font-size:13px;margin-bottom:16px">Assign pipeline steps to team members. Once assigned, they appear in the member's task list.</p>
+    <div id="assign-steps">
+      ${type.pipeline.map(step => {
+        const task = tasks.find(t=>t.entityId===entityId&&t.stepId===step.id);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:var(--radius);margin-bottom:6px;border:1px solid var(--border)">
+          <div style="flex:1">
+            <div style="font-weight:500;font-size:13px">${step.name}</div>
+            <div style="font-size:11px;color:var(--text3)">${step.dept||'No dept'}</div>
+          </div>
+          <select id="assign-${step.id}" style="width:160px;font-size:12px">
+            <option value="">Unassigned</option>
+            ${members.filter(m=>m.role!=='pending').map(m=>`<option value="${m.userId}" ${task?.assigneeId===m.userId?'selected':''}>${m.username}</option>`).join('')}
+          </select>
+          <input type="date" id="due-${step.id}" value="${task?.dueDate||''}" style="width:140px;font-size:12px">
+          ${task?`<span class="badge badge-${task.status==='done'?'done':task.status==='in_review'?'review':task.status==='in_progress'?'in-progress':'draft'}">${task.status.replace('_',' ')}</span>`:'<span class="badge badge-draft">not assigned</span>'}
+        </div>`;
+      }).join('')}
+    </div>
+  `, [
+    {label:'Cancel', onclick:'closeModal()'},
+    {label:'Save Assignments', primary:true, onclick:`submitAssignments('${entityId}')`}
+  ]);
+}
+
+async function submitAssignments(entityId) {
+  const entity = S.entities.find(e=>e.id===entityId);
+  const type = S.types.find(t=>t.id===entity?.typeId);
+  for (const step of (type?.pipeline||[])) {
+    const assigneeId = document.getElementById(`assign-${step.id}`)?.value;
+    const dueDate = document.getElementById(`due-${step.id}`)?.value;
+    if (assigneeId) {
+      await api('POST',`/api/projects/${S.project.id}/tasks`, {
+        entityId, stepId:step.id, stepName:step.name,
+        dept:step.dept||'', assigneeId, dueDate
+      });
+    }
+  }
+  closeModal();
+  alert('Assignments saved!');
+}
+
+// ═══ MY TASKS ═══════════════════════════════════════════
+async function renderMyTasks() {
+  const tasks = await api('GET',`/api/projects/${S.project.id}/my-tasks`);
+  const container = document.getElementById('my-tasks-content');
+
+  // Update badge
+  const active = tasks.filter(t=>t.status!=='done').length;
+  document.getElementById('nc-tasks').textContent = active||'';
+
+  if (!tasks.length) {
+    container.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><h3>No tasks assigned</h3><p>Your lead will assign pipeline steps to you</p></div>`;
+    return;
+  }
+
+  const byStatus = {not_started:[], in_progress:[], in_review:[], done:[], blocked:[]};
+  tasks.forEach(t=>{ if(byStatus[t.status]) byStatus[t.status].push(t); });
+
+  const statusLabel = {not_started:'Not Started', in_progress:'In Progress', in_review:'In Review', done:'Done', blocked:'Blocked'};
+  const statusColor = {not_started:'var(--text3)', in_progress:'var(--amber)', in_review:'var(--purple)', done:'var(--green)', blocked:'var(--red)'};
+
+  container.innerHTML = Object.entries(byStatus).filter(([s,tasks])=>tasks.length).map(([status, tasks])=>`
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title" style="color:${statusColor[status]}">${statusLabel[status]} (${tasks.length})</div>
+      ${tasks.map(t=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:6px;border:1px solid var(--border)">
+          <div style="flex:1;cursor:pointer" onclick="openEntityView('${t.entityId}')">
+            <div style="font-weight:600;font-size:13px">${t.entityName}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">${t.stepName} <span style="color:var(--text3)">· ${t.dept||'no dept'}</span></div>
+            ${t.dueDate?`<div style="font-size:11px;color:var(--amber);margin-top:2px">Due: ${t.dueDate}</div>`:''}
+            ${t.note?`<div style="font-size:12px;color:var(--text3);margin-top:4px;font-style:italic">${t.note}</div>`:''}
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            ${status==='not_started'?`<button class="btn btn-sm" onclick="updateMyTask('${t.id}','in_progress')">▶ Start</button>`:''}
+            ${status==='in_progress'?`<button class="btn btn-sm btn-primary" onclick="submitForReview('${t.id}')">Submit for Review</button>`:''}
+            ${status==='blocked'?`<button class="btn btn-sm" onclick="updateMyTask('${t.id}','in_progress')">↩ Restart</button>`:''}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+async function updateMyTask(taskId, status, note) {
+  await api('PUT',`/api/projects/${S.project.id}/tasks/${taskId}`,{status, note});
+  // Refresh counts
+  try {
+    const myTasks = await api('GET',`/api/projects/${S.project.id}/my-tasks`);
+    const active = myTasks.filter(t=>t.status!=='done').length;
+    document.getElementById('nc-tasks').textContent = active||'';
+  } catch(e) {}
+  renderMyTasks();
+}
+
+function submitForReview(taskId) {
+  showModal('','Submit for Review',`
+    <div class="form-group"><label class="form-label">Note for your Lead (optional)</label>
+    <textarea id="submit-note" style="min-height:70px" placeholder="Describe what you did, any issues, questions..."></textarea></div>
+  `,[
+    {label:'Cancel',onclick:'closeModal()'},
+    {label:'Submit',primary:true,onclick:`submitForReviewConfirm('${taskId}')`}
+  ]);
+}
+
+async function submitForReviewConfirm(taskId) {
+  const note = document.getElementById('submit-note')?.value||'';
+  closeModal();
+  await updateMyTask(taskId, 'in_review', note);
+}
+
+// ═══ REVIEW QUEUE ═══════════════════════════════════════
+async function renderReviewQueue() {
+  const tasks = await api('GET',`/api/projects/${S.project.id}/review-queue`);
+  document.getElementById('nc-review').textContent = tasks.length||'';
+  const container = document.getElementById('review-content');
+  if (!tasks.length) {
+    container.innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><h3>No tasks pending review</h3><p>Tasks submitted by your team will appear here</p></div>`;
+    return;
+  }
+  container.innerHTML = tasks.map(t=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px">
+      <div style="flex:1;cursor:pointer" onclick="openEntityView('${t.entityId}')">
+        <div style="font-weight:600;font-size:14px">${t.entityName} <span style="font-size:12px;color:var(--text3)">→ ${t.stepName}</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">Submitted by <strong style="color:var(--text2)">${t.assigneeName}</strong> · ${t.dept||'no dept'}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-success" onclick="reviewTask('${t.id}','done')">✓ Approve</button>
+        <button class="btn btn-sm" onclick="reviewTaskWithNote('${t.id}')">↩ Request Changes</button>
+        <button class="btn btn-sm btn-danger" onclick="reviewTask('${t.id}','blocked')">✕ Reject</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function reviewTask(taskId, status) {
+  await api('PUT',`/api/projects/${S.project.id}/tasks/${taskId}`,{status});
+  // Refresh review count
+  try {
+    const queue = await api('GET',`/api/projects/${S.project.id}/review-queue`);
+    document.getElementById('nc-review').textContent = queue.length||'';
+  } catch(e) {}
+  renderReviewQueue();
+}
+
+function reviewTaskWithNote(taskId) {
+  showModal('','Request Changes',`
+    <div class="form-group"><label class="form-label">Note for the team member</label>
+    <textarea id="review-note" style="min-height:80px" placeholder="Explain what needs to be changed..."></textarea></div>
+  `,[
+    {label:'Cancel',onclick:'closeModal()'},
+    {label:'Send Back',primary:true,onclick:`submitReviewNote('${taskId}')`}
+  ]);
+}
+
+async function submitReviewNote(taskId) {
+  const note = document.getElementById('review-note').value;
+  await api('PUT',`/api/projects/${S.project.id}/tasks/${taskId}`,{status:'in_progress', note});
+  closeModal(); renderReviewQueue();
+}
+
+// ═══ REPORTS ════════════════════════════════════════════
+async function renderReports() {
+  const data = await api('GET',`/api/projects/${S.project.id}/reports`);
+  const container = document.getElementById('reports-content');
+
+  container.innerHTML = `
+    <!-- Completion by type -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Completion by Entity Type</div>
+      ${data.completionByType.map(t=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:16px">${t.icon}</span>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:13px;font-weight:500">${t.name}</span>
+              <span style="font-size:12px;color:var(--text3)">${t.done}/${t.total} done · ${t.pct}%</span>
+            </div>
+            <div class="prog-bar"><div class="prog-fill" style="width:${t.pct}%;background:${t.color}"></div></div>
+          </div>
+        </div>`).join('') || '<p style="color:var(--text3);font-size:13px">No data yet</p>'}
+    </div>
+
+    <!-- Environment breakdown -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Engine Environment Status</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+        ${data.envBreakdown.map(e=>`
+          <div style="text-align:center;padding:14px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+            <div style="font-size:22px;font-weight:700;color:${ENV_COLORS[e.env]||'var(--text)'}">${e.count}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">${e.label}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <!-- Tasks by person -->
+      <div class="card">
+        <div class="card-title">Tasks by Team Member</div>
+        ${data.tasksByPerson.length ? data.tasksByPerson.map(p=>`
+          <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-weight:500;font-size:13px">${p.username}</span>
+              <span style="font-size:11px;color:var(--text3)">${p.total} total</span>
+            </div>
+            <div class="chips">
+              ${p.in_progress?`<span class="badge" style="background:var(--amber-bg);color:var(--amber)">${p.in_progress} active</span>`:''}
+              ${p.in_review?`<span class="badge" style="background:var(--purple-bg);color:var(--purple)">${p.in_review} review</span>`:''}
+              ${p.done?`<span class="badge badge-done">${p.done} done</span>`:''}
+              ${p.blocked?`<span class="badge badge-blocked">${p.blocked} blocked</span>`:''}
+            </div>
+          </div>`).join('') : '<p style="color:var(--text3);font-size:13px">No tasks assigned yet</p>'}
+      </div>
+
+      <!-- Recent activity -->
+      <div class="card">
+        <div class="card-title">This Week's Activity</div>
+        <div style="max-height:300px;overflow-y:auto">
+          ${data.weekActivity.length ? data.weekActivity.map(a=>`
+            <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="color:var(--text2);font-weight:500">${a.username}</span>
+              <span style="color:var(--text3)"> · ${a.detail}</span>
+              <div style="color:var(--text3);font-size:10px;margin-top:2px">${ago(a.createdAt)}</div>
+            </div>`).join('') : '<p style="color:var(--text3);font-size:13px">No activity this week</p>'}
+        </div>
+      </div>
+    </div>
+
+    <!-- Unassigned steps -->
+    <div class="card">
+      <div class="card-title">Unassigned Pipeline Steps (${data.unassigned.length})</div>
+      ${data.unassigned.length ? `
+        <table class="tbl">
+          <thead><tr><th>Entity</th><th>Step</th><th>Department</th><th></th></tr></thead>
+          <tbody>${data.unassigned.map(u=>`<tr>
+            <td style="font-weight:500;cursor:pointer" onclick="openEntityView('${u.entityId}')">${u.entityName}</td>
+            <td>${u.stepName}</td>
+            <td style="color:var(--text3)">${u.dept||'—'}</td>
+            <td><button class="btn btn-xs btn-primary" onclick="openEntityView('${u.entityId}')">Assign</button></td>
+          </tr>`).join('')}</tbody>
+        </table>` : '<p style="color:var(--text3);font-size:13px">All pipeline steps are assigned!</p>'}
+    </div>
+  `;
+}
+
+// ═══ ICON UPLOAD ═════════════════════════════════════════
+function previewIcon(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById('icon-preview');
+    if (preview) preview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearIcon() {
+  window._clearIcon = true;
+  const preview = document.getElementById('icon-preview');
+  if (preview) {
+    const type = S.types.find(t=>t.id===S.entities.find(e=>e.id===window._editEntityId)?.typeId);
+    preview.innerHTML = type?.icon || '📦';
+  }
+}
+
+async function uploadEntityIcon(entityId) {
+  const fileInput = document.getElementById('icon-file');
+  if (!fileInput?.files?.[0] && !window._clearIcon) return null;
+  if (window._clearIcon) return '';
+  const file = fileInput.files[0];
+  if (!file) return null;
+  if (file.size > 2 * 1024 * 1024) { alert('Image too large. Max 2MB.'); return null; }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const response = await fetch('/api/upload/icon', {
+    method: 'POST',
+    headers: { 'Content-Type': file.type },
+    body: arrayBuffer
+  });
+  const data = await response.json();
+  return data.url || null;
+}
+
+// ═══ JSON EXPORT ════════════════════════════════════════
+async function exportJSON() {
+  const entities = await api('GET',`/api/projects/${S.project.id}/entities`);
+  const types = await api('GET',`/api/projects/${S.project.id}/entity-types`);
+  const tags = await api('GET',`/api/projects/${S.project.id}/tags`);
+
+  const exportData = {
+    project: { name: S.project.name, exportedAt: new Date().toISOString() },
+    entityTypes: types.map(t => ({
+      id: t.id, name: t.name, category: t.category,
+      parentId: t.parentId || t.parent_id || null,
+      fields: t.fields || []
+    })),
+    tags: tags.map(t => ({ id: t.id, name: t.name, category: t.category, description: t.description })),
+    entities: entities.map(e => {
+      const type = types.find(t => t.id === (e.typeId || e.type_id));
+      return {
+        id: e.id, name: e.name,
+        type: type?.name || 'Unknown',
+        typeId: e.typeId || e.type_id,
+        status: e.status,
+        environment: e.environment,
+        tags: (e.tags||[]).map(tid => { const tg = tags.find(t=>t.id===tid); return tg?.name||tid; }),
+        fields: e.fields || {}
+      };
+    })
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${S.project.name.replace(/[^a-zA-Z0-9]/g,'-')}-export-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══ ENTITY AUTO-LINKING ════════════════════════════════
+function linkifyText(text) {
+  if (!text || !S.entities || !S.entities.length) return text;
+  var sorted = S.entities.slice().sort(function(a,b){return b.name.length-a.name.length;});
+  var result = text;
+  for (var i=0; i<sorted.length; i++) {
+    var entity = sorted[i];
+    if (!entity.name || entity.name.length < 2) continue;
+    try {
+      var idx = result.indexOf(entity.name);
+      while (idx !== -1) {
+        var before = idx === 0 ? '' : result[idx-1];
+        var after = idx+entity.name.length >= result.length ? '' : result[idx+entity.name.length];
+        var wordChar = /[a-zA-Z0-9_]/;
+        if (!wordChar.test(before) && !wordChar.test(after)) {
+          var link = '<span class="elink" onclick="openEntityView(\'' + entity.id + '\')">' + entity.name + '</span>';
+          result = result.slice(0, idx) + link + result.slice(idx + entity.name.length);
+          idx = result.indexOf(entity.name, idx + link.length);
+        } else {
+          idx = result.indexOf(entity.name, idx + entity.name.length);
+        }
+      }
+    } catch(e) {}
+  }
+  return result;
+}
+
+// Apply linkification to a field value display
+function renderFieldValue(field, val) {
+  if (field.type === 'richtext' && val) {
+    const linked = linkifyText(val);
+    return `<div class="fld-val" style="white-space:pre-wrap;color:var(--text2);line-height:1.7">${linked}</div>`;
+  }
+  if (field.type === 'text' && val) {
+    return `<div class="fld-val">${linkifyText(val)}</div>`;
+  }
+  return null; // Use default rendering
+}
+
+// ═══ INIT ═══════════════════════════════════════════════
+(async()=>{
+  const me=await api('GET','/api/auth/me');
+  if(me){S.user=me;afterAuth();}
+  else document.getElementById('auth-screen').style.display='flex';
+})();
+</script>
+</body>
+</html>

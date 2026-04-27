@@ -1,0 +1,38 @@
+[
+  {
+    "id": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Nomad",
+    "inviteCode": "NOMA-5958",
+    "ownerId": "23c67f4f-7f7c-465d-86e1-da7066febada",
+    "createdAt": "2026-04-27T00:18:40.831Z",
+    "departments": [
+      "design",
+      "art",
+      "programming",
+      "production",
+      "qa",
+      "audio"
+    ],
+    "roles": [
+      "lead_designer",
+      "designer",
+      "lead_artist",
+      "character_artist",
+      "prop_artist",
+      "environment_artist",
+      "concept_artist",
+      "animator",
+      "vfx_artist",
+      "ui_artist",
+      "tech_artist",
+      "lead_developer",
+      "developer",
+      "project_manager",
+      "qa_lead",
+      "qa_tester",
+      "audio_lead",
+      "audio_designer",
+      "viewer"
+    ]
+  }
+]

@@ -1,0 +1,197 @@
+{
+  "d9f33e61-dc6b-4924-bd9b-18ca28d10878": {
+    "entity": [
+      {
+        "id": "concept_art",
+        "name": "Concept Art",
+        "dept": "art"
+      },
+      {
+        "id": "mesh",
+        "name": "Mesh",
+        "dept": "art"
+      },
+      {
+        "id": "texture",
+        "name": "Texture",
+        "dept": "art"
+      },
+      {
+        "id": "icon",
+        "name": "Icon",
+        "dept": "art"
+      },
+      {
+        "id": "engine_import",
+        "name": "Engine Import",
+        "dept": "art"
+      },
+      {
+        "id": "implemented",
+        "name": "Implemented",
+        "dept": "programming"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "mechanic": [
+      {
+        "id": "design_doc",
+        "name": "Design Doc",
+        "dept": "design"
+      },
+      {
+        "id": "prototype",
+        "name": "Prototype",
+        "dept": "programming"
+      },
+      {
+        "id": "animation",
+        "name": "Animation",
+        "dept": "art"
+      },
+      {
+        "id": "vfx",
+        "name": "VFX",
+        "dept": "art"
+      },
+      {
+        "id": "sound",
+        "name": "Sound",
+        "dept": "audio"
+      },
+      {
+        "id": "coded",
+        "name": "Coded",
+        "dept": "programming"
+      },
+      {
+        "id": "balanced",
+        "name": "Balanced",
+        "dept": "design"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "system": [
+      {
+        "id": "design_doc",
+        "name": "Design Doc",
+        "dept": "design"
+      },
+      {
+        "id": "prototype",
+        "name": "Prototype",
+        "dept": "programming"
+      },
+      {
+        "id": "implemented",
+        "name": "Implemented",
+        "dept": "programming"
+      },
+      {
+        "id": "balanced",
+        "name": "Balanced",
+        "dept": "design"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "phenomenon": [
+      {
+        "id": "concept_art",
+        "name": "Concept Art",
+        "dept": "art"
+      },
+      {
+        "id": "vfx_shader",
+        "name": "VFX/Shader",
+        "dept": "art"
+      },
+      {
+        "id": "implemented",
+        "name": "Implemented",
+        "dept": "programming"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "world": [
+      {
+        "id": "design",
+        "name": "Design",
+        "dept": "design"
+      },
+      {
+        "id": "blockout",
+        "name": "Blockout",
+        "dept": "art"
+      },
+      {
+        "id": "art_pass",
+        "name": "Art Pass",
+        "dept": "art"
+      },
+      {
+        "id": "populated",
+        "name": "Populated",
+        "dept": "design"
+      },
+      {
+        "id": "optimized",
+        "name": "Optimized",
+        "dept": "programming"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "location": [
+      {
+        "id": "design",
+        "name": "Design",
+        "dept": "design"
+      },
+      {
+        "id": "blockout",
+        "name": "Blockout",
+        "dept": "art"
+      },
+      {
+        "id": "art_pass",
+        "name": "Art Pass",
+        "dept": "art"
+      },
+      {
+        "id": "populated",
+        "name": "Populated",
+        "dept": "design"
+      },
+      {
+        "id": "optimized",
+        "name": "Optimized",
+        "dept": "programming"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "concept": []
+  }
+}

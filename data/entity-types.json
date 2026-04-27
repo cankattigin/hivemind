@@ -1,0 +1,790 @@
+[
+  {
+    "id": "4246a1ff-0dd5-45e0-a126-1e0e5bbc6fa2",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "ITEM",
+    "category": "concept",
+    "color": "#6366f1",
+    "icon": "📦",
+    "fields": [
+      {
+        "id": "description",
+        "name": "Description",
+        "type": "richtext",
+        "description": "What is this item? Lore and purpose.",
+        "required": false
+      },
+      {
+        "id": "rarity",
+        "name": "Rarity",
+        "type": "enum",
+        "description": "How rare is this item in the world?",
+        "options": [
+          "Common",
+          "Uncommon",
+          "Rare",
+          "Epic",
+          "Legendary"
+        ],
+        "required": true
+      },
+      {
+        "id": "weight",
+        "name": "Weight",
+        "type": "number",
+        "description": "Item weight in kg. Affects carry capacity.",
+        "required": false
+      },
+      {
+        "id": "stackable",
+        "name": "Stackable",
+        "type": "boolean",
+        "description": "Can multiple copies stack in one inventory slot?",
+        "required": false
+      },
+      {
+        "id": "max_stack",
+        "name": "Max Stack",
+        "type": "number",
+        "description": "Maximum number that can stack in one slot. Only relevant if Stackable = Yes.",
+        "required": false
+      },
+      {
+        "id": "droppable",
+        "name": "Droppable",
+        "type": "boolean",
+        "description": "Can the player drop this item on the ground?",
+        "required": false
+      },
+      {
+        "id": "tradeable",
+        "name": "Tradeable",
+        "type": "boolean",
+        "description": "Can this item be traded to vendors or other players?",
+        "required": false
+      }
+    ],
+    "pipeline": [],
+    "parentId": null,
+    "createdAt": "2026-04-27T00:18:40.835Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "8ccd0dc8-55c3-46d7-832b-1e5649e61a7b",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Enemy",
+    "category": "entity",
+    "color": "#ef4444",
+    "icon": "👾",
+    "fields": [
+      {
+        "id": "hp",
+        "name": "HP",
+        "type": "number",
+        "description": "Base health points. This is max HP at spawn.",
+        "required": true
+      },
+      {
+        "id": "damage",
+        "name": "Damage",
+        "type": "number",
+        "description": "Base damage per attack before player armor.",
+        "required": true
+      },
+      {
+        "id": "armor",
+        "name": "Armor",
+        "type": "number",
+        "description": "Flat damage reduction on incoming hits.",
+        "required": false
+      },
+      {
+        "id": "move_speed",
+        "name": "Move Speed",
+        "type": "number",
+        "description": "Movement speed in m/s.",
+        "required": false
+      },
+      {
+        "id": "aggro_range",
+        "name": "Aggro Range",
+        "type": "number",
+        "description": "Distance in meters at which the enemy detects and pursues the player.",
+        "required": false
+      },
+      {
+        "id": "xp_drop",
+        "name": "XP Drop",
+        "type": "number",
+        "description": "Experience points awarded to the player on death.",
+        "required": false
+      },
+      {
+        "id": "loot_table",
+        "name": "Loot Table",
+        "type": "loot_table",
+        "description": "Items dropped on death with their quantity range and drop chance.",
+        "required": false
+      },
+      {
+        "id": "behavior",
+        "name": "Behavior Notes",
+        "type": "richtext",
+        "description": "AI behavior description: patrol, aggro triggers, special attacks, flee conditions.",
+        "required": false
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "concept_art",
+        "name": "Concept Art",
+        "dept": "art"
+      },
+      {
+        "id": "mesh",
+        "name": "Mesh",
+        "dept": "art"
+      },
+      {
+        "id": "texture",
+        "name": "Texture",
+        "dept": "art"
+      },
+      {
+        "id": "icon",
+        "name": "Icon",
+        "dept": "art"
+      },
+      {
+        "id": "engine_import",
+        "name": "Engine Import",
+        "dept": "art"
+      },
+      {
+        "id": "implemented",
+        "name": "Implemented",
+        "dept": "programming"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "parentId": null,
+    "createdAt": "2026-04-27T00:18:40.836Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "4a785e8b-ad83-4660-94e9-d19df6e785b9",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "NPC",
+    "category": "entity",
+    "color": "#a855f7",
+    "icon": "🧑",
+    "fields": [
+      {
+        "id": "role",
+        "name": "Role",
+        "type": "enum",
+        "description": "What function does this NPC serve in the world?",
+        "options": [
+          "Vendor",
+          "Quest Giver",
+          "Companion",
+          "Neutral",
+          "Trainer"
+        ],
+        "required": true
+      },
+      {
+        "id": "location",
+        "name": "Location",
+        "type": "reference",
+        "description": "Where is this NPC normally found?",
+        "required": false
+      },
+      {
+        "id": "faction",
+        "name": "Faction",
+        "type": "reference",
+        "description": "Which faction does this NPC belong to?",
+        "required": false
+      },
+      {
+        "id": "dialogue_notes",
+        "name": "Dialogue Notes",
+        "type": "richtext",
+        "description": "Key dialogue topics, personality, tone. Full dialogue goes in the Dialogue system.",
+        "required": false
+      },
+      {
+        "id": "inventory",
+        "name": "Inventory",
+        "type": "loot_table",
+        "description": "Items available for purchase if this NPC is a vendor.",
+        "required": false
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "concept_art",
+        "name": "Concept Art",
+        "dept": "art"
+      },
+      {
+        "id": "mesh",
+        "name": "Mesh",
+        "dept": "art"
+      },
+      {
+        "id": "texture",
+        "name": "Texture",
+        "dept": "art"
+      },
+      {
+        "id": "icon",
+        "name": "Icon",
+        "dept": "art"
+      },
+      {
+        "id": "engine_import",
+        "name": "Engine Import",
+        "dept": "art"
+      },
+      {
+        "id": "implemented",
+        "name": "Implemented",
+        "dept": "programming"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "parentId": null,
+    "createdAt": "2026-04-27T00:18:40.838Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "115607cc-fa9a-4520-ba8b-09c0901e9a5f",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Resource Node",
+    "category": "entity",
+    "color": "#10b981",
+    "icon": "🌳",
+    "fields": [
+      {
+        "id": "biome",
+        "name": "Biome",
+        "type": "reference",
+        "description": "Which biome(s) this node spawns in.",
+        "required": false
+      },
+      {
+        "id": "loot_table",
+        "name": "Drops",
+        "type": "loot_table",
+        "description": "What resources this node yields when harvested.",
+        "required": true
+      },
+      {
+        "id": "respawn_time",
+        "name": "Respawn (min)",
+        "type": "number",
+        "description": "Time in minutes before this node respawns after being harvested.",
+        "required": false
+      },
+      {
+        "id": "tool_required",
+        "name": "Tool Required",
+        "type": "reference",
+        "description": "Which tool is needed to harvest this node. Leave empty = no tool required.",
+        "required": false
+      },
+      {
+        "id": "spawn_notes",
+        "name": "Spawn Notes",
+        "type": "richtext",
+        "description": "Additional spawn conditions: time of day, weather, density notes.",
+        "required": false
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "concept_art",
+        "name": "Concept Art",
+        "dept": "art"
+      },
+      {
+        "id": "mesh",
+        "name": "Mesh",
+        "dept": "art"
+      },
+      {
+        "id": "texture",
+        "name": "Texture",
+        "dept": "art"
+      },
+      {
+        "id": "icon",
+        "name": "Icon",
+        "dept": "art"
+      },
+      {
+        "id": "engine_import",
+        "name": "Engine Import",
+        "dept": "art"
+      },
+      {
+        "id": "implemented",
+        "name": "Implemented",
+        "dept": "programming"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "parentId": null,
+    "createdAt": "2026-04-27T00:18:40.839Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "0fb7ce06-bc2a-4255-9e98-bbdc6264c403",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Biome",
+    "category": "world",
+    "color": "#14b8a6",
+    "icon": "🌍",
+    "fields": [
+      {
+        "id": "description",
+        "name": "Description",
+        "type": "richtext",
+        "description": "Visual and atmospheric description of this biome.",
+        "required": true
+      },
+      {
+        "id": "temperature",
+        "name": "Temperature",
+        "type": "enum",
+        "description": "Temperature range affects player survival mechanics.",
+        "options": [
+          "Freezing",
+          "Cold",
+          "Temperate",
+          "Warm",
+          "Hot",
+          "Scorching"
+        ],
+        "required": false
+      },
+      {
+        "id": "hazards",
+        "name": "Hazards",
+        "type": "richtext",
+        "description": "Environmental dangers: storms, floods, temperature damage, poison air.",
+        "required": false
+      },
+      {
+        "id": "resources",
+        "name": "Key Resources",
+        "type": "richtext",
+        "description": "Notable resources found in this biome.",
+        "required": false
+      },
+      {
+        "id": "enemies",
+        "name": "Enemy Types",
+        "type": "richtext",
+        "description": "What enemy types commonly spawn here.",
+        "required": false
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "design",
+        "name": "Design",
+        "dept": "design"
+      },
+      {
+        "id": "blockout",
+        "name": "Blockout",
+        "dept": "art"
+      },
+      {
+        "id": "art_pass",
+        "name": "Art Pass",
+        "dept": "art"
+      },
+      {
+        "id": "populated",
+        "name": "Populated",
+        "dept": "design"
+      },
+      {
+        "id": "optimized",
+        "name": "Optimized",
+        "dept": "programming"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "parentId": null,
+    "createdAt": "2026-04-27T00:18:40.841Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "06a93330-d1eb-4378-a798-e1738fc25cb5",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Combat System",
+    "category": "system",
+    "color": "#ef4444",
+    "icon": "⚔️",
+    "fields": [
+      {
+        "id": "summary",
+        "name": "Summary",
+        "type": "richtext",
+        "description": "One paragraph overview of how combat works.",
+        "required": true
+      },
+      {
+        "id": "how_it_works",
+        "name": "How It Works",
+        "type": "richtext",
+        "description": "Step by step breakdown of a combat encounter.",
+        "required": false
+      },
+      {
+        "id": "parameters",
+        "name": "Parameters",
+        "type": "richtext",
+        "description": "Key tunable values: attack windows, damage formulas, stamina costs.",
+        "required": false
+      },
+      {
+        "id": "edge_cases",
+        "name": "Edge Cases",
+        "type": "richtext",
+        "description": "Known issues, corner cases, open design questions.",
+        "required": false
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "design_doc",
+        "name": "Design Doc",
+        "dept": "design"
+      },
+      {
+        "id": "prototype",
+        "name": "Prototype",
+        "dept": "programming"
+      },
+      {
+        "id": "implemented",
+        "name": "Implemented",
+        "dept": "programming"
+      },
+      {
+        "id": "balanced",
+        "name": "Balanced",
+        "dept": "design"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "parentId": null,
+    "createdAt": "2026-04-27T00:18:40.843Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "dd25a911-5df9-4ffe-9e66-a32cc01c4fab",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Crafting System",
+    "category": "system",
+    "color": "#f59e0b",
+    "icon": "⚙️",
+    "fields": [
+      {
+        "id": "summary",
+        "name": "Summary",
+        "type": "richtext",
+        "description": "How does crafting work at a high level?",
+        "required": true
+      },
+      {
+        "id": "stations",
+        "name": "Crafting Stations",
+        "type": "richtext",
+        "description": "List of crafting stations and what they produce.",
+        "required": false
+      },
+      {
+        "id": "how_it_works",
+        "name": "How It Works",
+        "type": "richtext",
+        "description": "Player flow: open menu → select recipe → confirm materials → craft.",
+        "required": false
+      },
+      {
+        "id": "edge_cases",
+        "name": "Edge Cases",
+        "type": "richtext",
+        "description": "Failed crafts, missing materials, inventory full behavior.",
+        "required": false
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "design_doc",
+        "name": "Design Doc",
+        "dept": "design"
+      },
+      {
+        "id": "prototype",
+        "name": "Prototype",
+        "dept": "programming"
+      },
+      {
+        "id": "implemented",
+        "name": "Implemented",
+        "dept": "programming"
+      },
+      {
+        "id": "balanced",
+        "name": "Balanced",
+        "dept": "design"
+      },
+      {
+        "id": "qa",
+        "name": "QA",
+        "dept": "qa"
+      }
+    ],
+    "parentId": null,
+    "createdAt": "2026-04-27T00:18:40.845Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "1f371caf-8119-405c-837c-2343e3ba0e7b",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "WEAPON",
+    "category": "concept",
+    "color": "#ef4444",
+    "icon": "⚔️",
+    "fields": [
+      {
+        "id": "base_damage",
+        "name": "Base Damage",
+        "type": "number",
+        "description": "Raw damage dealt per hit before armor/resistances are applied.",
+        "required": true
+      },
+      {
+        "id": "attack_speed",
+        "name": "Attack Speed",
+        "type": "number",
+        "description": "Attacks per second. 1.0 = one attack per second.",
+        "required": true
+      },
+      {
+        "id": "durability",
+        "name": "Durability",
+        "type": "number",
+        "description": "Number of hits before the item breaks. -1 = unbreakable.",
+        "required": true
+      },
+      {
+        "id": "range",
+        "name": "Range",
+        "type": "number",
+        "description": "Attack range in meters.",
+        "required": false
+      },
+      {
+        "id": "req_level",
+        "name": "Req. Level",
+        "type": "number",
+        "description": "Minimum player level required to equip this weapon.",
+        "required": false
+      },
+      {
+        "id": "two_handed",
+        "name": "Two Handed",
+        "type": "boolean",
+        "description": "Does equipping this weapon use both hand slots?",
+        "required": false
+      },
+      {
+        "id": "crafting_recipe",
+        "name": "Crafting Recipe",
+        "type": "loot_table",
+        "description": "Materials needed to craft this weapon at a crafting station.",
+        "required": false
+      },
+      {
+        "id": "crafted_at",
+        "name": "Crafted At",
+        "type": "reference",
+        "description": "Which crafting station produces this weapon.",
+        "required": false
+      }
+    ],
+    "pipeline": [],
+    "parentId": "4246a1ff-0dd5-45e0-a126-1e0e5bbc6fa2",
+    "createdAt": "2026-04-27T00:18:40.849Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "3d66d7ed-516f-4815-87e8-988f852f3513",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "ARMOR",
+    "category": "concept",
+    "color": "#3b82f6",
+    "icon": "🛡️",
+    "fields": [
+      {
+        "id": "defense",
+        "name": "Defense",
+        "type": "number",
+        "description": "Flat damage reduction applied before percentage resistance.",
+        "required": true
+      },
+      {
+        "id": "slot",
+        "name": "Slot",
+        "type": "enum",
+        "description": "Which equipment slot this armor occupies.",
+        "options": [
+          "Head",
+          "Chest",
+          "Legs",
+          "Feet",
+          "Hands",
+          "Back"
+        ],
+        "required": true
+      },
+      {
+        "id": "durability",
+        "name": "Durability",
+        "type": "number",
+        "description": "Number of hits before armor breaks. -1 = unbreakable.",
+        "required": true
+      },
+      {
+        "id": "req_level",
+        "name": "Req. Level",
+        "type": "number",
+        "description": "Minimum player level required to equip.",
+        "required": false
+      },
+      {
+        "id": "crafting_recipe",
+        "name": "Crafting Recipe",
+        "type": "loot_table",
+        "description": "Materials needed to craft this armor.",
+        "required": false
+      },
+      {
+        "id": "crafted_at",
+        "name": "Crafted At",
+        "type": "reference",
+        "description": "Which crafting station produces this armor.",
+        "required": false
+      }
+    ],
+    "pipeline": [],
+    "parentId": "4246a1ff-0dd5-45e0-a126-1e0e5bbc6fa2",
+    "createdAt": "2026-04-27T00:18:40.851Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "2e48d92d-5786-4676-9284-01b86a1e9bda",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "CONSUMABLE",
+    "category": "concept",
+    "color": "#10b981",
+    "icon": "🧪",
+    "fields": [
+      {
+        "id": "effect",
+        "name": "Effect",
+        "type": "richtext",
+        "description": "What happens when the player uses this item? Be specific about values.",
+        "required": true
+      },
+      {
+        "id": "duration",
+        "name": "Duration (s)",
+        "type": "number",
+        "description": "How long the effect lasts in seconds. 0 = instant.",
+        "required": false
+      },
+      {
+        "id": "cooldown",
+        "name": "Cooldown (s)",
+        "type": "number",
+        "description": "Time in seconds before this item can be used again.",
+        "required": false
+      },
+      {
+        "id": "stack_size",
+        "name": "Stack Size",
+        "type": "number",
+        "description": "How many can be carried in one slot.",
+        "required": false
+      }
+    ],
+    "pipeline": [],
+    "parentId": "4246a1ff-0dd5-45e0-a126-1e0e5bbc6fa2",
+    "createdAt": "2026-04-27T00:18:40.854Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  },
+  {
+    "id": "6ce1c326-d276-4267-bd8f-6abd5e994b09",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "MATERIAL",
+    "category": "concept",
+    "color": "#f59e0b",
+    "icon": "🪨",
+    "fields": [
+      {
+        "id": "source",
+        "name": "Source",
+        "type": "richtext",
+        "description": "Where does this material come from? Nodes, enemies, crafting?",
+        "required": false
+      },
+      {
+        "id": "stack_size",
+        "name": "Stack Size",
+        "type": "number",
+        "description": "How many can be stacked in one slot.",
+        "required": true
+      },
+      {
+        "id": "used_in",
+        "name": "Used In",
+        "type": "richtext",
+        "description": "What recipes or systems use this material?",
+        "required": false
+      }
+    ],
+    "pipeline": [],
+    "parentId": "4246a1ff-0dd5-45e0-a126-1e0e5bbc6fa2",
+    "createdAt": "2026-04-27T00:18:40.856Z",
+    "createdBy": "23c67f4f-7f7c-465d-86e1-da7066febada"
+  }
+]

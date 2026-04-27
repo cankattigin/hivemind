@@ -1,0 +1,164 @@
+[
+  {
+    "id": "54587c59-f6cd-49ee-bd4c-46e6a66d79a4",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Slashing",
+    "category": "Damage Type",
+    "color": "#ef4444",
+    "description": "Deals slashing damage. May cause Bleeding on hit.",
+    "createdAt": "2026-04-27T00:18:40.857Z"
+  },
+  {
+    "id": "875e7017-fd37-4f69-a12f-57c7e0a57641",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Piercing",
+    "category": "Damage Type",
+    "color": "#f97316",
+    "description": "Deals piercing damage. High armor penetration.",
+    "createdAt": "2026-04-27T00:18:40.862Z"
+  },
+  {
+    "id": "7a121e45-9936-49ca-95a2-81f12f8033af",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Bludgeoning",
+    "category": "Damage Type",
+    "color": "#f59e0b",
+    "description": "Deals bludgeoning damage. Can stagger enemies.",
+    "createdAt": "2026-04-27T00:18:40.863Z"
+  },
+  {
+    "id": "0039fd2e-e6e3-4a41-81ab-a548649402f0",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Fire",
+    "category": "Damage Type",
+    "color": "#ef4444",
+    "description": "Deals fire damage. Applies Burning status.",
+    "createdAt": "2026-04-27T00:18:40.864Z"
+  },
+  {
+    "id": "94297d6e-ea16-4802-9cb9-bbd6ee734ece",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Ice",
+    "category": "Damage Type",
+    "color": "#06b6d4",
+    "description": "Deals ice damage. Applies Frozen/Slow status.",
+    "createdAt": "2026-04-27T00:18:40.865Z"
+  },
+  {
+    "id": "4e1548c7-fbcd-4e69-ae30-0c2892a107c4",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Poison",
+    "category": "Damage Type",
+    "color": "#10b981",
+    "description": "Deals poison damage over time.",
+    "createdAt": "2026-04-27T00:18:40.867Z"
+  },
+  {
+    "id": "6723b4c2-ccba-45e2-96ca-89b07e216d9a",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Common",
+    "category": "Rarity",
+    "color": "#9fa8c7",
+    "description": "Standard items found everywhere.",
+    "createdAt": "2026-04-27T00:18:40.868Z"
+  },
+  {
+    "id": "e6b29e22-05d3-4ee4-97a6-b09c8b9e7bbf",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Uncommon",
+    "category": "Rarity",
+    "color": "#10b981",
+    "description": "Better than average. Found in mid-tier areas.",
+    "createdAt": "2026-04-27T00:18:40.870Z"
+  },
+  {
+    "id": "48da7c6f-b0ae-4fb1-8cf2-3b69911659cc",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Rare",
+    "category": "Rarity",
+    "color": "#3b82f6",
+    "description": "Hard to find. Significant power advantage.",
+    "createdAt": "2026-04-27T00:18:40.871Z"
+  },
+  {
+    "id": "2a67bf43-181c-4da3-97c2-5194abac7162",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Epic",
+    "category": "Rarity",
+    "color": "#a855f7",
+    "description": "Very rare. Exceptional power.",
+    "createdAt": "2026-04-27T00:18:40.873Z"
+  },
+  {
+    "id": "66ec8f87-694b-4a4f-8017-27ab9fb592ae",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Legendary",
+    "category": "Rarity",
+    "color": "#f59e0b",
+    "description": "Extremely rare. Game-changing power.",
+    "createdAt": "2026-04-27T00:18:40.874Z"
+  },
+  {
+    "id": "85599ee6-41ac-4117-95c1-3604df888157",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Craftable",
+    "category": "Acquisition",
+    "color": "#6366f1",
+    "description": "Can be crafted at a crafting station.",
+    "createdAt": "2026-04-27T00:18:40.876Z"
+  },
+  {
+    "id": "27e98490-a763-46a3-b54e-1f2b42655f63",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Lootable",
+    "category": "Acquisition",
+    "color": "#14b8a6",
+    "description": "Dropped by enemies or found in containers.",
+    "createdAt": "2026-04-27T00:18:40.877Z"
+  },
+  {
+    "id": "6aa6037e-00dd-4314-b026-79abd93ba87d",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Quest Item",
+    "category": "Special",
+    "color": "#ec4899",
+    "description": "Required for a quest. Cannot be dropped or traded.",
+    "createdAt": "2026-04-27T00:18:40.878Z"
+  },
+  {
+    "id": "66563ddb-f4df-4051-97ed-9f0526dade15",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Bleeding",
+    "category": "Status Effect",
+    "color": "#ef4444",
+    "description": "Deals damage over time. Cured by bandage.",
+    "createdAt": "2026-04-27T00:18:40.879Z"
+  },
+  {
+    "id": "e09b840e-cace-448c-a1af-d88a51e9a3b6",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Burning",
+    "category": "Status Effect",
+    "color": "#f97316",
+    "description": "Fire damage over time. Move to water to extinguish.",
+    "createdAt": "2026-04-27T00:18:40.881Z"
+  },
+  {
+    "id": "1309bb66-3bfc-4610-9ddf-6b7c59358cfb",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Poisoned",
+    "category": "Status Effect",
+    "color": "#10b981",
+    "description": "Poison damage over time. Cured by antidote.",
+    "createdAt": "2026-04-27T00:18:40.882Z"
+  },
+  {
+    "id": "644d00e2-0d0b-4561-91cb-916e3d3bb2c2",
+    "projectId": "d9f33e61-dc6b-4924-bd9b-18ca28d10878",
+    "name": "Frozen",
+    "category": "Status Effect",
+    "color": "#06b6d4",
+    "description": "Slowed movement and attack speed.",
+    "createdAt": "2026-04-27T00:18:40.884Z"
+  }
+]
