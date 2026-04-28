@@ -1180,8 +1180,13 @@ async function submitCreateEntity() {
   if(!name||!typeId) return alert('Name and type are required');
   const type=S.types.find(t=>t.id===typeId);
   const fields=collectFields(type);
-  const entity=await api('POST',`/api/projects/${S.project.id}/entities`,{name,typeId,status,tags:[...window._selTags],fields});
-  S.entities.push(entity);
+  // Initialize pipeline steps as 'not_started' for all steps in the type's pipeline
+  const pipeline = {};
+  if (type?.pipeline?.length) {
+    type.pipeline.forEach(step => { pipeline[step.id] = 'not_started'; });
+  }
+  const entity=await api('POST',`/api/projects/${S.project.id}/entities`,{name,typeId,status,tags:[...window._selTags],fields,pipeline});
+  S.entities.push({...entity, typeId: entity.type_id || entity.typeId});
   renderSidebarTypes();
   closeModal();
   openEntityView(entity.id);
@@ -1189,7 +1194,6 @@ async function submitCreateEntity() {
 
 async function openEditEntity(entityId) {
   const entity=S.entities.find(e=>e.id===entityId); if(!entity) return;
-  window._editEntityId = entityId;
   window._editEntityId = entityId;
   const type=S.types.find(t=>t.id===entity.typeId);
   const allFields=getAllFields(type);
@@ -1330,8 +1334,10 @@ function openCreateType(parentId) {
 
 function buildTypeForm(type, parentId) {
   const selCat=type?.category||'entity';
-  const parent=parentId?S.types.find(t=>t.id===parentId):(type?.parentId?S.types.find(t=>t.id===type.parentId):null);
+  const resolvedParentId = parentId || type?.parentId || type?.parent_id || null;
+  const parent=resolvedParentId?S.types.find(t=>t.id===resolvedParentId):null;
   return `
+    <input type="hidden" id="tf-parent-id" value="${resolvedParentId||''}">
     ${parent?`<div style="padding:10px 14px;background:var(--accent-bg);border:1px solid var(--border2);border-radius:var(--radius);margin-bottom:16px;font-size:13px;color:var(--accent2)">
       ↳ Sub-type of <strong>${parent.name}</strong> — inherits all ${parent.fields?.length||0} fields from parent
     </div>`:''}
@@ -1410,16 +1416,14 @@ function renderTP() {
 
 async function submitCreateType() {
   const name=v('tf-name'); if(!name) return alert('Name required');
-  const parentId=document.getElementById('tf-cat-override') ? S.types.find(t=>t.category===document.getElementById('tf-cat-override').value&&t.name===document.querySelector('.cat-pill.on')?.dataset.cat)?.id : null;
-  // Get parentId from form context
-  const parentBanner=document.querySelector('[id^="tf-cat-override"]');
-  const pId = parentBanner?.value ? window._currentParentId : null;
+  // Get parentId from the hidden input in the form (set by buildTypeForm)
+  const parentIdEl = document.getElementById('tf-parent-id');
+  const parentId = parentIdEl ? parentIdEl.value || null : null;
   const type=await api('POST',`/api/projects/${S.project.id}/entity-types`,{
     name, icon:v('tf-icon')||'📦', category:getSelCat(), color:getSelColor(),
-    fields:window._tf||[], pipeline:window._tp||[], parentId:window._currentParentId||null
+    fields:window._tf||[], pipeline:window._tp||[], parentId:parentId
   });
-  S.types.push(type);
-  window._currentParentId=null;
+  S.types.push({...type, parentId: type.parent_id || type.parentId});
   renderSidebarTypes(); closeModal(); renderSchema();
 }
 
@@ -1450,13 +1454,6 @@ async function deleteType(id) {
   S.types=S.types.filter(t=>t.id!==id);
   renderSidebarTypes(); renderSchema();
 }
-
-// Override openCreateType to store parentId
-const _origOpenCreateType=openCreateType;
-window.openCreateType=function(parentId) {
-  window._currentParentId=parentId||null;
-  _origOpenCreateType(parentId);
-};
 
 // ═══ TAGS ═══════════════════════════════════════════════
 function renderTags() {
