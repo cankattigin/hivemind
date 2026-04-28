@@ -789,6 +789,8 @@ async function loadProjectData() {
     api('GET',`/api/projects/${pid}/tags`),
     api('GET',`/api/projects/${pid}/pipelines`)
   ]);
+  S.types = S.types.map(t => ({...t, parentId: t.parent_id || t.parentId || null}));
+  S.entities = S.entities.map(e => ({...e, typeId: e.type_id || e.typeId}));
   renderSidebarTypes();
   document.getElementById('nc-all').textContent = S.entities.length;
   // Load task counts
@@ -836,21 +838,20 @@ function goPage(page, typeId) {
 function show(id) { document.getElementById(id).style.display='block'; }
 
 function renderSidebarTypes() {
-  // Group by category
   const groups={};
   S.types.forEach(t=>{ if(!groups[t.category]) groups[t.category]=[]; groups[t.category].push(t); });
+  function typeBtn(t, isChild) {
+    const children = S.types.filter(c=>c.parentId===t.id);
+    const count = S.entities.filter(e=>e.typeId===t.id).length;
+    return `<button class="nav-item ${!isChild&&children.length?'':'nav-sub-item'}" data-page="type-entities" data-typeid="${t.id}" onclick="goPage('type-entities','${t.id}')" style="${isChild?'padding-left:22px;':''}">
+        <span class="ni">${t.icon}</span> ${t.name}
+        <span class="nc">${count||''}</span>
+      </button>${children.map(c=>typeBtn(c,true)).join('')}`;
+  }
   let html='';
   CATEGORIES.forEach(cat=>{
-    const types = groups[cat.id]||[];
-    if (!types.length) return;
-    types.forEach(t=>{
-      const isParent = !t.parentId;
-      const children = S.types.filter(c=>c.parentId===t.id);
-      html += `<button class="nav-item ${isParent&&children.length?'':'nav-sub-item'}" data-page="type-entities" data-typeid="${t.id}" onclick="goPage('type-entities','${t.id}')" style="${t.parentId?'padding-left:22px;':''}">
-        <span class="ni">${t.icon}</span> ${t.name}
-        <span class="nc">${S.entities.filter(e=>e.typeId===t.id).length}</span>
-      </button>`;
-    });
+    const roots=(groups[cat.id]||[]).filter(t=>!t.parentId);
+    roots.forEach(t=>{ html+=typeBtn(t,false); });
   });
   document.getElementById('sb-types').innerHTML = html||'<p style="font-size:12px;color:var(--text3);padding:4px 10px">No types yet</p>';
   document.getElementById('nc-all').textContent=S.entities.length;
