@@ -308,6 +308,7 @@ app.post('/api/projects/:pid/entities', auth, async (req, res) => {
     id: uuidv4(), project_id: req.params.pid,
     name: req.body.name, type_id: req.body.typeId,
     fields: req.body.fields || {}, tags: req.body.tags || [],
+    nature: req.body.nature || null,
     status: req.body.status || 'draft',
     environment: req.body.environment || 'not_in_engine',
     pipeline: {}, pipeline_steps: {},

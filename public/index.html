@@ -301,11 +301,12 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
           <div style="display:flex;gap:8px">
             <input id="ent-search" placeholder="🔍 Search..." style="width:200px" oninput="renderEntitiesTable()">
             <select id="ent-type-filter" style="width:160px" onchange="renderEntitiesTable()"><option value="">All classes</option></select>
+            <select id="ent-nature-filter" style="width:150px" onchange="renderEntitiesTable()"><option value="">All natures</option>${NATURES.map(n=>`<option value="${n.id}">${n.icon} ${n.name}</option>`).join('')}</select>
             <button class="btn btn-primary" onclick="openCreateEntity()">+ New Element</button>
           </div>
         </div>
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="tbl"><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Tags</th><th>Updated</th></tr></thead>
+          <table class="tbl"><thead><tr><th>Name</th><th>Type</th><th>Nature</th><th>Status</th><th>Tags</th><th>Updated</th></tr></thead>
           <tbody id="ent-tbody"></tbody></table>
         </div>
       </div>
@@ -459,6 +460,16 @@ const CATEGORIES = [
   {id:'system',    icon:'⚙️', name:'System',     desc:'Interconnected (Crafting, Building)'},
   {id:'world',     icon:'🌍', name:'World',      desc:'Large scale (Biome, Region)'},
   {id:'location',  icon:'📍', name:'Location',   desc:'Specific place (City, Dungeon)'},
+];
+
+const NATURES = [
+  {id:'concept',   icon:'🌫️', name:'Concept',   color:'#8b5cf6'},
+  {id:'phenomenon',icon:'🌦',  name:'Phenomenon',color:'#06b6d4'},
+  {id:'entity',    icon:'🧍', name:'Entity',    color:'#10b981'},
+  {id:'mechanic',  icon:'⚡', name:'Mechanic',  color:'#f59e0b'},
+  {id:'system',    icon:'⚙️', name:'System',    color:'#3b82f6'},
+  {id:'world',     icon:'🌍', name:'World',     color:'#ec4899'},
+  {id:'location',  icon:'📍', name:'Location',  color:'#ef4444'},
 ];
 
 // Categories that use design-doc style editor instead of data fields
@@ -888,9 +899,17 @@ async function renderDashboard() {
       <span style="font-size:16px">${t?.icon||'📦'}</span>
       <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
       <div style="font-size:11px;color:var(--text3)">${t?.name||''} · ${ago(e.updatedAt)}</div></div>
+      ${natureBadge(e.nature)}
       <span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span>
     </div>`;
   }).join('') : '<p style="color:var(--text3);font-size:13px">No elements yet.</p>';
+}
+
+function natureBadge(nature) {
+  if(!nature) return '';
+  const n=NATURES.find(x=>x.id===nature);
+  if(!n) return '';
+  return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;background:${n.color}22;color:${n.color};white-space:nowrap">${n.icon} ${n.name}</span>`;
 }
 
 // ═══ ENTITY TABLES ══════════════════════════════════════
@@ -900,16 +919,17 @@ function entityRow(e, showPipe) {
   const envColor = ENV_COLORS[e.environment||'not_in_engine']||'var(--text3)';
   const envLabel = ENV_LABELS[e.environment||'not_in_engine']||'Not In Engine';
   const pipe = showPipe && type?.pipeline?.length ? `<div style="display:flex;gap:2px">${type.pipeline.slice(0,6).map(step=>{const st=e.pipeline?.[step.id]||'pending';const c={done:'var(--green)',in_progress:'var(--amber)',blocked:'var(--red)',pending:'var(--border2)'};return `<div style="width:12px;height:12px;border-radius:2px;background:${c[st]||c.pending}" title="${step.name}: ${st}"></div>`}).join('')}</div>` : '';
-  if (showPipe) return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${pipe}</td><td><span style="font-size:11px;color:${envColor}">${envLabel}</span></td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
-  return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${tags||'—'}</td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
+  if (showPipe) return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${pipe}</td><td><span style="font-size:11px;color:${envColor}">${envLabel}</span></td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
+  return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${tags||'—'}</td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
 }
 
 function renderEntitiesTable() {
-  const search=v('ent-search').toLowerCase(), typeId=v('ent-type-filter');
+  const search=v('ent-search').toLowerCase(), typeId=v('ent-type-filter'), natureId=v('ent-nature-filter');
   let list=S.entities;
   if(search) list=list.filter(e=>e.name.toLowerCase().includes(search));
   if(typeId) list=list.filter(e=>e.typeId===typeId);
-  document.getElementById('ent-tbody').innerHTML=list.map(e=>entityRow(e,false)).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:40px">No elements found</td></tr>';
+  if(natureId) list=list.filter(e=>e.nature===natureId);
+  document.getElementById('ent-tbody').innerHTML=list.map(e=>entityRow(e,false)).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:40px">No elements found</td></tr>';
 }
 
 function renderTypeEntities() {
@@ -955,6 +975,7 @@ async function openEntityView(entityId) {
     <div class="chips">
       ${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}
       <span class="badge badge-${entity.status||'draft'}">${entity.status||'draft'}</span>
+      ${natureBadge(entity.nature)}
           <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;background:var(--bg4);color:${ENV_COLORS[entity.environment||'not_in_engine']||'var(--text3)'}">${ENV_LABELS[entity.environment||'not_in_engine']||'Not In Engine'}</span>
       ${(entity.tags||[]).map(tid=>{const tg=S.tags.find(t=>t.id===tid);return tg?`<span class="tag" style="background:${tg.color}22;color:${tg.color};font-size:12px">${tg.name}</span>`:''}).join('')}
     </div></div></div>`;
@@ -1075,13 +1096,26 @@ function closeEntityView() {
 
 // ═══ CREATE/EDIT ENTITY ════════════════════════════════
 window._selTags=new Set();
+function selectNature(id, el) {
+  document.querySelectorAll('.nature-pill').forEach(p=>{p.style.outline='none';p.style.opacity='0.6';});
+  el.style.outline=`2px solid ${NATURES.find(n=>n.id===id)?.color||'#888'}`;
+  el.style.opacity='1';
+  window._selNature=id;
+}
+
 function openCreateEntity(typeId) {
   window._selTags=new Set();
+  window._selNature=null;
   showModal('modal-lg','Create Element',`
     <div class="form-row">
       <div class="form-group"><label class="form-label">Name *</label><input id="en-name" placeholder="e.g. Stone Axe, Iron Wolf, Darkwood"></div>
       <div class="form-group"><label class="form-label">Status</label>
         <select id="en-status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Nature</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        ${NATURES.map(n=>`<span class="nature-pill" onclick="selectNature('${n.id}',this)" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;background:${n.color}22;color:${n.color};opacity:0.6;transition:opacity 0.15s">${n.icon} ${n.name}</span>`).join('')}
       </div>
     </div>
     <div class="form-group"><label class="form-label">Class *</label>
@@ -1186,7 +1220,7 @@ async function submitCreateEntity() {
   if (type?.pipeline?.length) {
     type.pipeline.forEach(step => { pipeline[step.id] = 'not_started'; });
   }
-  const entity=await api('POST',`/api/projects/${S.project.id}/entities`,{name,typeId,status,tags:[...window._selTags],fields,pipeline});
+  const entity=await api('POST',`/api/projects/${S.project.id}/entities`,{name,typeId,status,nature:window._selNature||null,tags:[...window._selTags],fields,pipeline});
   S.entities.push({...entity, typeId: entity.type_id || entity.typeId});
   renderSidebarTypes();
   closeModal();
@@ -1196,6 +1230,7 @@ async function submitCreateEntity() {
 async function openEditEntity(entityId) {
   const entity=S.entities.find(e=>e.id===entityId); if(!entity) return;
   window._editEntityId = entityId;
+  window._selNature=entity.nature||null;
   const type=S.types.find(t=>t.id===entity.typeId);
   const allFields=getAllFields(type);
   const parentType=type?.parentId?S.types.find(t=>t.id===type.parentId):null;
@@ -1225,6 +1260,10 @@ async function openEditEntity(entityId) {
     <div class="chips" style="margin-top:6px">
       ${S.tags.map(tg=>{const sel=(entity.tags||[]).includes(tg.id);return `<span class="tag" style="cursor:pointer;${sel?`background:${tg.color}33;color:${tg.color};border:1px solid ${tg.color}66`:'background:var(--bg4);color:var(--text2);border:1px solid var(--border)'};padding:4px 10px" onclick="toggleEntTag(this,'${tg.id}','${tg.color}')" data-id="${tg.id}">${tg.name}</span>`;}).join('')}
     </div></div>`:'';
+  const natureHtml=`<div class="form-group"><label class="form-label">Nature</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+      ${NATURES.map(n=>{const sel=entity.nature===n.id;return `<span class="nature-pill" onclick="selectNature('${n.id}',this)" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;background:${n.color}22;color:${n.color};opacity:${sel?'1':'0.6'};outline:${sel?`2px solid ${n.color}`:'none'};transition:opacity 0.15s">${n.icon} ${n.name}</span>`;}).join('')}
+    </div></div>`;
   showModal('modal-lg',`Edit: ${entity.name}`,`
     <div class="form-row">
       <div class="form-group"><label class="form-label">Name</label><input id="ed-name" value="${entity.name}"></div>
@@ -1232,6 +1271,7 @@ async function openEditEntity(entityId) {
         <select id="ed-status">${STATUSES.map(s=>`<option value="${s}" ${entity.status===s?'selected':''}>${s}</option>`).join('')}</select>
       </div>
     </div>
+    ${natureHtml}
     ${iconHtml}
     ${tagHtml}${fieldHtml}
   `,[{label:'Cancel',onclick:'closeModal()'},{label:'Save',primary:true,onclick:`submitEditEntity('${entityId}')`}]);
@@ -1243,7 +1283,7 @@ async function submitEditEntity(id) {
   const fields=collectFields(type);
   // Handle icon upload
   const iconUrl = await uploadEntityIcon(id);
-  const updateData = {name:v('ed-name'),status:v('ed-status'),tags:[...window._selTags],fields};
+  const updateData = {name:v('ed-name'),status:v('ed-status'),nature:window._selNature||null,tags:[...window._selTags],fields};
   if (iconUrl !== null) updateData.icon_url = iconUrl;
   const updated=await api('PUT',`/api/projects/${S.project.id}/entities/${id}`,updateData);
   const idx=S.entities.findIndex(e=>e.id===id); if(idx>-1) S.entities[idx]=updated;
