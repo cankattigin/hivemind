@@ -1434,7 +1434,6 @@ async function openEditType(typeId) {
   const type=S.types.find(t=>t.id===typeId); if(!type) return;
   window._tf=JSON.parse(JSON.stringify(type.fields||[]));
   window._tp=JSON.parse(JSON.stringify(type.pipeline||[]));
-  window._currentParentId=type.parentId||null;
   showModal('modal-lg',`Edit: ${type.name}`,buildTypeForm(type,type.parentId),[
     {label:'Cancel',onclick:'closeModal()'},{label:'Save',primary:true,onclick:`submitEditType('${typeId}')`}
   ]);
