@@ -1289,30 +1289,33 @@ function renderSchema() {
   if(!S.types.length){el.innerHTML=`<div class="empty"><div class="empty-icon">⚙️</div><h3>No entity types yet</h3><p>Create your first type or create a project with a genre template to auto-populate</p></div>`;return;}
   const groups={};
   S.types.forEach(t=>{if(!groups[t.category])groups[t.category]=[];groups[t.category].push(t);});
+  function typeRow(type, isChild) {
+    const pid = type.parentId || type.parent_id;
+    const parent = isChild ? S.types.find(t=>t.id===pid) : null;
+    const children = S.types.filter(t=>(t.parentId||t.parent_id)===type.id);
+    return `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);${isChild?'margin-left:20px;border-left:2px solid var(--border2);padding-left:12px':''}">
+        <span style="font-size:20px;margin-top:2px">${type.icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-weight:600;font-size:14px">${type.name}</span>
+            ${parent?`<span style="font-size:11px;color:var(--text3)">extends ${parent.name}</span>`:''}
+            <span style="font-size:11px;color:var(--text3)">${type.fields?.length||0} fields · ${S.entities.filter(e=>e.typeId===type.id).length} entities</span>
+            ${children.length?`<span style="font-size:11px;color:var(--accent2)">${children.length} sub-types</span>`:''}
+          </div>
+          <div class="chips">${(type.fields||[]).map(f=>`<span class="badge badge-draft" style="font-size:10px" title="${f.description||''}">${f.name} <span style="opacity:.5">${f.type}</span></span>`).join('')||'<span style="font-size:11px;color:var(--text3)">No fields defined</span>'}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${canEditDesign()?`<button class="btn btn-sm" onclick="openCreateType('${type.id}')">+ Sub-type</button>`:''}
+          ${canEditDesign()?`<button class="btn btn-sm" onclick="openEditType('${type.id}')">✏️</button>`:''}
+          ${isDirector()?`<button class="btn btn-sm btn-danger" onclick="deleteType('${type.id}')">🗑</button>`:''}
+        </div>
+      </div>
+      ${children.map(child=>typeRow(child,true)).join('')}`;
+  }
   el.innerHTML=CATEGORIES.filter(c=>groups[c.id]).map(cat=>`
     <div class="card" style="margin-bottom:12px">
       <div class="card-title">${cat.icon} ${cat.name} — <span style="font-weight:400;font-size:11px">${cat.desc}</span></div>
-      ${groups[cat.id].map(type=>{
-        const parent=type.parentId?S.types.find(t=>t.id===type.parentId):null;
-        const children=S.types.filter(t=>t.parentId===type.id);
-        return `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);${type.parentId?'margin-left:20px;border-left:2px solid var(--border2);padding-left:12px':''}">
-          <span style="font-size:20px;margin-top:2px">${type.icon}</span>
-          <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-              <span style="font-weight:600;font-size:14px">${type.name}</span>
-              ${parent?`<span style="font-size:11px;color:var(--text3)">extends ${parent.name}</span>`:''}
-              <span style="font-size:11px;color:var(--text3)">${type.fields?.length||0} fields · ${S.entities.filter(e=>e.typeId===type.id).length} entities</span>
-              ${children.length?`<span style="font-size:11px;color:var(--accent2)">${children.length} sub-types</span>`:''}
-            </div>
-            <div class="chips">${(type.fields||[]).map(f=>`<span class="badge badge-draft" style="font-size:10px" title="${f.description||''}">${f.name} <span style="opacity:.5">${f.type}</span></span>`).join('')||'<span style="font-size:11px;color:var(--text3)">No fields defined</span>'}</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0">
-            ${canEditDesign()?`<button class="btn btn-sm" onclick="openCreateType('${type.id}')">+ Sub-type</button>`:''}
-            ${canEditDesign()?`<button class="btn btn-sm" onclick="openEditType('${type.id}')">✏️</button>`:''}
-            ${isDirector()?`<button class="btn btn-sm btn-danger" onclick="deleteType('${type.id}')">🗑</button>`:''}
-          </div>
-        </div>`;
-      }).join('')}
+      ${groups[cat.id].filter(t=>!(t.parentId||t.parent_id)).map(type=>typeRow(type,false)).join('')}
     </div>`).join('');
 }
 
