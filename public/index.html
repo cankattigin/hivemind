@@ -185,9 +185,49 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
+#theme-toggle-btn{display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 10px;border-radius:var(--radius);border:1px solid var(--border);font-size:12px;background:var(--bg3);color:var(--text2);user-select:none;flex-shrink:0;transition:all .15s}
+#theme-toggle-btn:hover{background:var(--bg4);color:var(--text)}
+/* ─── UMUT THEME (light) ─── */
+body.theme-umut{
+  --bg:#f4f4f8;--bg2:#ffffff;--bg3:#eeeef6;--bg4:#e2e2f0;
+  --border:#d0d0e4;--border2:#b8b8d4;
+  --text:#14142a;--text2:#464672;--text3:#8888b4;
+  --accent:#6366f1;--accent2:#4f52e8;--accent-bg:#eeeeff;
+  --green:#059669;--green-bg:#ecfdf5;--green-border:#a7f3d0;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fca5a5;
+  --amber:#d97706;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --purple:#7c3aed;--purple-bg:#f5f3ff;
+}
+body.theme-umut .btn-primary:hover{background:#4f52e8;border-color:#4f52e8}
+body.theme-umut .nav-item.active{border-color:#c0c0ee}
+body.theme-umut .badge-accent{border-color:#c0c0ee}
+body.theme-umut .overlay{background:rgba(0,0,0,.5)}
+/* ─── GIRL THEME (Barbie pink) ─── */
+body.theme-girl{
+  --bg:#fff0f6;--bg2:#ffd6eb;--bg3:#ffe4f0;--bg4:#ffb3d1;
+  --border:#ffb3d1;--border2:#ff85c0;
+  --text:#4a0028;--text2:#7a1048;--text3:#c060a0;
+  --accent:#ff69b4;--accent2:#ff1493;--accent-bg:#ffe0ef;
+  --green:#0a9060;--green-bg:#ffe8f4;--green-border:#ffb3d1;
+  --red:#cc2244;--red-bg:#fff0f4;--red-border:#ffb3d1;
+  --amber:#cc6600;--amber-bg:#fff4e8;--amber-border:#ffd6a0;
+  --purple:#cc00aa;--purple-bg:#ffe0f8;
+}
+body.theme-girl .btn-primary{color:#fff}
+body.theme-girl .btn-primary:hover{background:#ff1493;border-color:#ff1493}
+body.theme-girl .nav-item.active{border-color:#ff85c0}
+body.theme-girl .badge-accent{border-color:#ff85c0}
+body.theme-girl .overlay{background:rgba(80,0,40,.55)}
+body.theme-girl .logo-text{background:linear-gradient(135deg,#ff69b4,#ff1493);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+body.theme-girl .auth-logo h1{background:linear-gradient(135deg,#ff69b4,#ff1493);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+body.theme-girl input:focus,body.theme-girl select:focus,body.theme-girl textarea:focus{border-color:#ff69b4}
+body.theme-girl .auth-tab.on{background:#ff69b4;color:#fff}
+body.theme-girl .auth-type-btn:hover,body.theme-girl .auth-type-btn.on{border-color:#ff69b4;background:#ffe0ef}
+body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b4;background:#ffe0ef;color:#ff1493}
 </style>
 </head>
 <body>
+<script>(function(){var t=localStorage.getItem('hivemind-theme')||'dark';document.body.classList.add('theme-'+t);})()</script>
 
 <div id="auth-screen">
   <div class="auth-card">
@@ -286,6 +326,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div id="topbar">
       <div id="topbar-title">Dashboard</div>
       <div id="topbar-actions"></div>
+      <div id="theme-toggle-btn" onclick="cycleTheme()"><span id="theme-icon">🌙</span><span id="theme-label">Dark</span></div>
     </div>
     <div id="content">
       <div id="page-dashboard" class="page">
@@ -397,6 +438,29 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 </div>
 
 <script>
+// ═══ THEMES ═════════════════════════════════════════════
+const THEMES = [
+  {id:'dark', icon:'🌙', label:'Dark'},
+  {id:'umut', icon:'😊', label:'Umut'},
+  {id:'girl', icon:'💃', label:'Girl'},
+];
+function applyTheme(id) {
+  document.body.classList.remove('theme-dark','theme-umut','theme-girl');
+  document.body.classList.add('theme-'+id);
+  const t=THEMES.find(x=>x.id===id)||THEMES[0];
+  const icon=document.getElementById('theme-icon');
+  const lbl=document.getElementById('theme-label');
+  if(icon) icon.textContent=t.icon;
+  if(lbl) lbl.textContent=t.label;
+  localStorage.setItem('hivemind-theme',id);
+}
+function cycleTheme() {
+  const cur=localStorage.getItem('hivemind-theme')||'dark';
+  const idx=THEMES.findIndex(t=>t.id===cur);
+  applyTheme(THEMES[(idx+1)%THEMES.length].id);
+}
+(function initTheme(){applyTheme(localStorage.getItem('hivemind-theme')||'dark');})();
+
 const S = {
   user:null, project:null, membership:null,
   types:[], entities:[], tags:[], pipelines:{},
