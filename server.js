@@ -126,20 +126,6 @@ const DEFAULT_PIPELINE_TEMPLATES = [
   { name:'Level Pipeline',         steps:[{id:'blockout',name:'Blockout',dept:'art'},{id:'art_pass',name:'Art Pass',dept:'art'},{id:'lighting',name:'Lighting',dept:'art'},{id:'optimization',name:'Optimization',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}] },
 ];
 
-async function runMigration() {
-  const MIGRATION_SQL = `CREATE TABLE IF NOT EXISTS pipeline_templates (id uuid primary key, project_id uuid references projects(id) on delete cascade, name text not null, steps jsonb default '[]', created_at timestamptz default now());`;
-  const { error } = await supabase.from('pipeline_templates').select('id').limit(1);
-  if (!error) return; // table already exists
-  const ref = (process.env.SUPABASE_URL||'').match(/\/\/([^.]+)\./)?.[1];
-  if (ref) {
-    const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-      method:'POST', headers:{'Authorization':`Bearer ${process.env.SUPABASE_SERVICE_KEY}`,'Content-Type':'application/json'},
-      body: JSON.stringify({ query: MIGRATION_SQL })
-    });
-    if (r.ok) { console.log('✅ pipeline_templates table created'); return; }
-  }
-  console.warn(`\n⚠️  Run this SQL in the Supabase dashboard:\n${MIGRATION_SQL}\n`);
-}
 
 const DEFAULT_PIPELINES = {
   entity: [{id:'concept_art',name:'Concept Art',dept:'art'},{id:'mesh',name:'Mesh',dept:'art'},{id:'texture',name:'Texture',dept:'art'},{id:'icon',name:'Icon',dept:'art'},{id:'engine_import',name:'Engine Import',dept:'art'},{id:'implemented',name:'Implemented',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}],
@@ -169,9 +155,6 @@ app.post('/api/projects', auth, async (req, res) => {
   const { error } = await supabase.from('projects').insert(project);
   if (error) return res.status(500).json({ error: error.message });
   await supabase.from('memberships').insert({ id: uuidv4(), user_id: req.session.userId, project_id: project.id, role: 'director', roles: ['director'], department: null, joined_at: new Date().toISOString() });
-  // Seed default pipeline templates (best-effort)
-  const defaultTpls = DEFAULT_PIPELINE_TEMPLATES.map(t => ({ id: uuidv4(), project_id: project.id, name: t.name, steps: t.steps, created_at: new Date().toISOString() }));
-  await supabase.from('pipeline_templates').insert(defaultTpls).catch(() => {});
   res.json({ ...project, inviteCode: project.invite_code, ownerId: project.owner_id });
 });
 
@@ -241,31 +224,53 @@ app.delete('/api/projects/:id/members/:userId', auth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── PIPELINE TEMPLATES ───────────────────────────────
+// ─── PIPELINE TEMPLATES (stored in projects.pipelines.templates) ──────────
+async function getProjectPipelines(pid) {
+  const { data } = await supabase.from('projects').select('pipelines').eq('id', pid).single();
+  return data?.pipelines || {};
+}
+async function saveProjectPipelines(pid, pipelines) {
+  return supabase.from('projects').update({ pipelines }).eq('id', pid);
+}
+
 app.get('/api/projects/:pid/pipeline-templates', auth, async (req, res) => {
-  const { data, error } = await supabase.from('pipeline_templates').select('*').eq('project_id', req.params.pid).order('created_at');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data || []);
+  const pipelines = await getProjectPipelines(req.params.pid);
+  let templates = pipelines.templates;
+  if (!templates || templates.length === 0) {
+    // Seed defaults on first access
+    templates = DEFAULT_PIPELINE_TEMPLATES.map(t => ({ ...t, id: uuidv4(), created_at: new Date().toISOString() }));
+    await saveProjectPipelines(req.params.pid, { ...pipelines, templates });
+  }
+  res.json(templates);
 });
 
 app.post('/api/projects/:pid/pipeline-templates', auth, async (req, res) => {
-  const tpl = { id: uuidv4(), project_id: req.params.pid, name: req.body.name, steps: req.body.steps || [], created_at: new Date().toISOString() };
-  const { data, error } = await supabase.from('pipeline_templates').insert(tpl).select().single();
+  const pipelines = await getProjectPipelines(req.params.pid);
+  const tpl = { id: uuidv4(), name: req.body.name, steps: req.body.steps || [], created_at: new Date().toISOString() };
+  const templates = [...(pipelines.templates || []), tpl];
+  const { error } = await saveProjectPipelines(req.params.pid, { ...pipelines, templates });
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  res.json(tpl);
 });
 
 app.put('/api/projects/:pid/pipeline-templates/:id', auth, async (req, res) => {
-  const updates = {};
-  if (req.body.name !== undefined) updates.name = req.body.name;
-  if (req.body.steps !== undefined) updates.steps = req.body.steps;
-  const { data, error } = await supabase.from('pipeline_templates').update(updates).eq('id', req.params.id).eq('project_id', req.params.pid).select().single();
+  const pipelines = await getProjectPipelines(req.params.pid);
+  let updated = null;
+  const templates = (pipelines.templates || []).map(t => {
+    if (t.id !== req.params.id) return t;
+    updated = { ...t, ...(req.body.name !== undefined ? { name: req.body.name } : {}), ...(req.body.steps !== undefined ? { steps: req.body.steps } : {}) };
+    return updated;
+  });
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  const { error } = await saveProjectPipelines(req.params.pid, { ...pipelines, templates });
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  res.json(updated);
 });
 
 app.delete('/api/projects/:pid/pipeline-templates/:id', auth, async (req, res) => {
-  const { error } = await supabase.from('pipeline_templates').delete().eq('id', req.params.id).eq('project_id', req.params.pid);
+  const pipelines = await getProjectPipelines(req.params.pid);
+  const templates = (pipelines.templates || []).filter(t => t.id !== req.params.id);
+  const { error } = await saveProjectPipelines(req.params.pid, { ...pipelines, templates });
   if (error) return res.status(500).json({ error: error.message });
   res.json({ ok: true });
 });
@@ -613,7 +618,4 @@ app.post('/api/upload/icon', auth, (req, res) => {
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.listen(PORT, async () => {
-  console.log(`\n🧠 Hivemind v0.4 (Supabase) → http://localhost:${PORT}\n`);
-  await runMigration();
-});
+app.listen(PORT, () => console.log(`\n🧠 Hivemind v0.4 (Supabase) → http://localhost:${PORT}\n`));
