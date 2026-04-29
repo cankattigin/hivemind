@@ -471,7 +471,13 @@ const S = {
 function getMyRoles() {
   if (S.user?.accountType === 'director') return ['director'];
   if (!S.membership) return ['viewer'];
-  return Array.isArray(S.membership.roles) ? S.membership.roles : [S.membership.role || 'viewer'];
+  const rolesArr = Array.isArray(S.membership.roles) ? S.membership.roles : null;
+  const roleStr = S.membership.role;
+  // roles array can be stale ['viewer'] when director only updated the role string — prefer role string in that case
+  if (rolesArr && rolesArr.length > 0 && !(rolesArr.length === 1 && rolesArr[0] === 'viewer' && roleStr && roleStr !== 'viewer' && roleStr !== 'pending')) {
+    return rolesArr;
+  }
+  return [roleStr || 'viewer'];
 }
 
 function isDirector() { return S.user?.accountType === 'director' || getMyRoles().includes('director'); }
@@ -1284,8 +1290,10 @@ async function submitCreateEntity() {
   if (type?.pipeline?.length) {
     type.pipeline.forEach(step => { pipeline[step.id] = 'not_started'; });
   }
-  const entity=await api('POST',`/api/projects/${S.project.id}/entities`,{name,typeId,status,nature:window._selNature||null,tags:[...window._selTags],fields,pipeline});
-  S.entities.push({...entity, typeId: entity.type_id || entity.typeId});
+  const raw=await api('POST',`/api/projects/${S.project.id}/entities`,{name,typeId,status,nature:window._selNature||null,tags:[...window._selTags],fields,pipeline});
+  if (!raw?.id) return alert(raw?.error || 'Failed to create element');
+  const entity={...raw, typeId: raw.type_id || raw.typeId, updatedAt: raw.updated_at || raw.updatedAt};
+  S.entities.push(entity);
   renderSidebarTypes();
   closeModal();
   openEntityView(entity.id);
@@ -1808,7 +1816,9 @@ async function saveDepts() {
 }
 
 async function updateMember(userId, field, value) {
-  await api('PUT',`/api/projects/${S.project.id}/members/${userId}`,{[field]:value});
+  const body = {[field]: value};
+  if (field === 'role') body.roles = [value];
+  await api('PUT',`/api/projects/${S.project.id}/members/${userId}`,body);
 }
 async function removeMember(userId) {
   if(!confirm('Remove this member from the project?')) return;

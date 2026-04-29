@@ -199,7 +199,7 @@ app.get('/api/projects/:id/members', auth, async (req, res) => {
 
 app.put('/api/projects/:id/members/:userId', auth, async (req, res) => {
   const updates = {};
-  if (req.body.role) updates.role = req.body.role;
+  if (req.body.role) { updates.role = req.body.role; updates.roles = [req.body.role]; }
   if (req.body.roles) updates.roles = req.body.roles;
   if (req.body.department !== undefined) updates.department = req.body.department;
   const { data, error } = await supabase.from('memberships').update(updates).eq('user_id', req.params.userId).eq('project_id', req.params.id).select().single();
