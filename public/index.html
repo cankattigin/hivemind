@@ -378,8 +378,10 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
         <div id="tags-list"></div>
       </div>
       <div id="page-pipelines" class="page" style="display:none">
-        <div class="sec-hd"><div class="sec-title">Pipeline Templates</div><button class="btn btn-primary" onclick="savePipelines()">💾 Save</button></div>
-        <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Default pipeline steps per category. Classes inherit these. Editable by Director, PM, or Department Leads.</p>
+        <div class="sec-hd">
+          <div><div class="sec-title">Pipeline Templates</div><p style="font-size:13px;color:var(--text3);margin-top:2px">Reusable step sequences you can apply to any Class</p></div>
+          <div id="pipelines-hd-actions"></div>
+        </div>
         <div id="pipelines-editor"></div>
       </div>
       <div id="page-my-tasks" class="page" style="display:none">
@@ -463,7 +465,7 @@ function cycleTheme() {
 
 const S = {
   user:null, project:null, membership:null,
-  types:[], entities:[], tags:[], pipelines:{},
+  types:[], entities:[], tags:[], pipelines:{}, pipelineTemplates:[],
   currentPage:'dashboard', currentTypeId:null, currentEntityId:null
 };
 
@@ -864,11 +866,11 @@ async function enterProject(projectId) {
 
 async function loadProjectData() {
   const pid = S.project.id;
-  [S.types, S.entities, S.tags, S.pipelines] = await Promise.all([
+  [S.types, S.entities, S.tags, S.pipelineTemplates] = await Promise.all([
     api('GET',`/api/projects/${pid}/entity-types`),
     api('GET',`/api/projects/${pid}/entities`),
     api('GET',`/api/projects/${pid}/tags`),
-    api('GET',`/api/projects/${pid}/pipelines`)
+    api('GET',`/api/projects/${pid}/pipeline-templates`)
   ]);
   S.types = S.types.map(t => ({...t, parentId: t.parent_id || t.parentId || null}));
   S.entities = S.entities.map(e => ({...e, typeId: e.type_id || e.typeId}));
@@ -909,7 +911,7 @@ function goPage(page, typeId) {
   }
   else if (page==='schema') { show('page-schema'); renderSchema(); }
   else if (page==='tags') { show('page-tags'); renderTags(); }
-  else if (page==='pipelines') { show('page-pipelines'); renderPipelinesEditor(); }
+  else if (page==='pipelines') { show('page-pipelines'); renderPipelineTemplates(); }
   else if (page==='team') { show('page-team'); renderTeam(); }
   else if (page==='my-tasks') { show('page-my-tasks'); renderMyTasks(); }
   else if (page==='review') { show('page-review'); renderReviewQueue(); }
@@ -1485,9 +1487,15 @@ function buildTypeForm(type, parentId) {
     </div>
     <div id="tf-list"></div>
     <hr>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="font-size:13px;font-weight:600">Pipeline Steps</div>
-      <button class="btn btn-sm" onclick="addTP()">+ Add Step</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="tp-template-sel" style="font-size:12px;padding:4px 8px;width:220px" onchange="applyPipelineTemplate(this.value);this.value=''">
+          <option value="">Apply template…</option>
+          ${S.pipelineTemplates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}
+        </select>
+        <button class="btn btn-sm" onclick="addTP()">+ Add Step</button>
+      </div>
     </div>
     <div id="tp-list"></div>
   `;
@@ -1496,9 +1504,6 @@ function buildTypeForm(type, parentId) {
 function selectCat(id,el) {
   document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('on'));
   el.classList.add('on');
-  const template=S.pipelines[id]||[];
-  window._tp=JSON.parse(JSON.stringify(template));
-  renderTP();
 }
 function selectColor(el){document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('on'));el.classList.add('on');}
 function getSelColor(){return document.querySelector('.cswatch.on')?.dataset.c||COLORS[0];}
@@ -1526,12 +1531,17 @@ function renderTF() {
 }
 
 function renderTP() {
-  document.getElementById('tp-list').innerHTML=(window._tp||[]).map((s,i)=>`
+  const steps=window._tp||[];
+  document.getElementById('tp-list').innerHTML=steps.map((s,i)=>`
     <div class="pipe-editor-row">
       <input placeholder="Step name (e.g. Mesh Done)" value="${s.name}" onchange="window._tp[${i}].name=this.value">
       <select onchange="window._tp[${i}].dept=this.value"><option value="">No dept</option>${DEPTS.map(d=>`<option value="${d}" ${s.dept===d?'selected':''}>${d}</option>`).join('')}</select>
-      <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="window._tp.splice(${i},1);renderTP()">✕</button>
-    </div>`).join('')||'<p style="color:var(--text3);font-size:12px;padding:4px 0">No steps. Select a category to auto-fill or add manually.</p>';
+      <div style="display:flex;gap:2px">
+        <button class="btn btn-ghost btn-xs" ${i===0?'disabled':''} onclick="window._tp.splice(${i-1},0,window._tp.splice(${i},1)[0]);renderTP()" title="Move up">▲</button>
+        <button class="btn btn-ghost btn-xs" ${i===steps.length-1?'disabled':''} onclick="window._tp.splice(${i+1},0,window._tp.splice(${i},1)[0]);renderTP()" title="Move down">▼</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="window._tp.splice(${i},1);renderTP()">✕</button>
+      </div>
+    </div>`).join('')||'<p style="color:var(--text3);font-size:12px;padding:4px 0">No steps. Apply a template or add manually.</p>';
 }
 
 async function submitCreateType() {
@@ -1644,29 +1654,84 @@ async function deleteTag(id) {
 }
 
 // ═══ PIPELINES ══════════════════════════════════════════
-function renderPipelinesEditor() {
-  const cats=CATEGORIES.filter(c=>c.id!=='concept');
-  document.getElementById('pipelines-editor').innerHTML=cats.map(cat=>`
-    <div class="card" style="margin-bottom:12px">
+function renderPipelineTemplates() {
+  const dir=isDirector();
+  const hd=document.getElementById('pipelines-hd-actions');
+  if(hd) hd.innerHTML=dir?'<button class="btn btn-primary" onclick="openPipelineTemplateModal()">+ New Template</button>':'';
+  const el=document.getElementById('pipelines-editor');
+  if(!S.pipelineTemplates.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">🔧</div><h3>No pipeline templates yet</h3><p style="font-size:13px;margin-top:4px">${dir?'Click "+ New Template" to create your first one.':'No templates have been created yet.'}</p></div>`;
+    return;
+  }
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">${S.pipelineTemplates.map(t=>`
+    <div class="card" style="margin:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin:0">${cat.icon} ${cat.name}</div>
-        <button class="btn btn-sm" onclick="addPipelineStep('${cat.id}')">+ Step</button>
+        <div style="font-size:14px;font-weight:700">${t.name}</div>
+        ${dir?`<div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="openPipelineTemplateModal('${t.id}')">✏️</button>
+          <button class="btn btn-sm btn-danger" onclick="deletePipelineTemplate('${t.id}')">🗑</button>
+        </div>`:''}
       </div>
-      <div id="pipe-${cat.id}">
-        ${(S.pipelines[cat.id]||[]).map((step,i)=>`
-          <div class="pipe-editor-row">
-            <input placeholder="Step name" value="${step.name}" onchange="S.pipelines['${cat.id}'][${i}].name=this.value">
-            <select onchange="S.pipelines['${cat.id}'][${i}].dept=this.value"><option value="">No dept</option>${DEPTS.map(d=>`<option value="${d}" ${step.dept===d?'selected':''}>${d}</option>`).join('')}</select>
-            <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removePipelineStep('${cat.id}',${i})">✕</button>
-          </div>`).join('')||'<p style="color:var(--text3);font-size:12px">No steps</p>'}
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${(t.steps||[]).map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+          <span style="width:18px;height:18px;border-radius:50%;background:var(--bg4);color:var(--text3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${i+1}</span>
+          <span style="flex:1">${s.name}</span>
+          ${s.dept?`<span style="font-size:10px;color:var(--text3);background:var(--bg4);padding:1px 6px;border-radius:10px">${s.dept}</span>`:''}
+        </div>`).join('')||'<p style="font-size:12px;color:var(--text3)">No steps</p>'}
       </div>
-    </div>`).join('');
+      <div style="margin-top:12px;font-size:11px;color:var(--text3)">${(t.steps||[]).length} step${(t.steps||[]).length!==1?'s':''}</div>
+    </div>`).join('')}</div>`;
 }
-function addPipelineStep(catId) { if(!S.pipelines[catId]) S.pipelines[catId]=[]; S.pipelines[catId].push({id:Date.now()+'',name:'',dept:''}); renderPipelinesEditor(); }
-function removePipelineStep(catId,i) { S.pipelines[catId].splice(i,1); renderPipelinesEditor(); }
-async function savePipelines() {
-  await api('PUT',`/api/projects/${S.project.id}/pipelines`,S.pipelines);
-  alert('Saved!');
+
+function openPipelineTemplateModal(templateId) {
+  const tpl=templateId?S.pipelineTemplates.find(t=>t.id===templateId):null;
+  window._editTplId=templateId||null;
+  window._tp=JSON.parse(JSON.stringify(tpl?.steps||[]));
+  showModal('modal-lg',tpl?`Edit: ${tpl.name}`:'New Pipeline Template',`
+    <div class="form-group"><label class="form-label">Template Name *</label>
+      <input id="tpl-name" value="${tpl?.name||''}" placeholder="e.g. 3D Prop Pipeline">
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:600">Steps</div>
+      <button class="btn btn-sm" onclick="addTP()">+ Add Step</button>
+    </div>
+    <div id="tp-list"></div>
+  `,[
+    {label:'Cancel',onclick:'closeModal()'},
+    {label:'Save Template',primary:true,onclick:'submitPipelineTemplate()'}
+  ]);
+  renderTP();
+}
+
+async function submitPipelineTemplate() {
+  const name=v('tpl-name'); if(!name) return alert('Name required');
+  const steps=window._tp||[];
+  if(window._editTplId){
+    const updated=await api('PUT',`/api/projects/${S.project.id}/pipeline-templates/${window._editTplId}`,{name,steps});
+    if(!updated?.id) return alert(updated?.error||'Failed to save');
+    const idx=S.pipelineTemplates.findIndex(t=>t.id===window._editTplId);
+    if(idx>-1) S.pipelineTemplates[idx]=updated;
+  } else {
+    const created=await api('POST',`/api/projects/${S.project.id}/pipeline-templates`,{name,steps});
+    if(!created?.id) return alert(created?.error||'Failed to create');
+    S.pipelineTemplates.push(created);
+  }
+  closeModal(); renderPipelineTemplates();
+}
+
+async function deletePipelineTemplate(id) {
+  if(!confirm('Delete this pipeline template?')) return;
+  await api('DELETE',`/api/projects/${S.project.id}/pipeline-templates/${id}`);
+  S.pipelineTemplates=S.pipelineTemplates.filter(t=>t.id!==id);
+  renderPipelineTemplates();
+}
+
+function applyPipelineTemplate(templateId) {
+  if(!templateId) return;
+  const tpl=S.pipelineTemplates.find(t=>t.id===templateId);
+  if(!tpl) return;
+  window._tp=JSON.parse(JSON.stringify(tpl.steps||[]));
+  renderTP();
 }
 
 // ═══ TEAM ═══════════════════════════════════════════════

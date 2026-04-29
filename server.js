@@ -115,6 +115,32 @@ function generateCode(name) {
   return `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
+const DEFAULT_PIPELINE_TEMPLATES = [
+  { name:'3D Prop Pipeline',       steps:[{id:'concept_art',name:'Concept Art',dept:'art'},{id:'modeling',name:'Modeling',dept:'art'},{id:'texturing',name:'Texturing',dept:'art'},{id:'rigging',name:'Rigging',dept:'art'},{id:'engine_import',name:'Engine Import',dept:'art'},{id:'qa',name:'QA',dept:'qa'}] },
+  { name:'3D Character Pipeline',  steps:[{id:'concept_art',name:'Concept Art',dept:'art'},{id:'modeling',name:'Modeling',dept:'art'},{id:'rigging',name:'Rigging',dept:'art'},{id:'skinning',name:'Skinning',dept:'art'},{id:'texturing',name:'Texturing',dept:'art'},{id:'facial_setup',name:'Facial Setup',dept:'art'},{id:'engine_import',name:'Engine Import',dept:'art'},{id:'animation_setup',name:'Animation Setup',dept:'art'},{id:'qa',name:'QA',dept:'qa'}] },
+  { name:'UI Asset Pipeline',      steps:[{id:'wireframe',name:'Wireframe',dept:'design'},{id:'design',name:'Design',dept:'art'},{id:'implementation',name:'Implementation',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}] },
+  { name:'VFX Pipeline',           steps:[{id:'reference',name:'Reference Gathering',dept:'art'},{id:'blocking',name:'Blocking',dept:'art'},{id:'polish',name:'Polish',dept:'art'},{id:'engine_import',name:'Engine Import',dept:'art'},{id:'qa',name:'QA',dept:'qa'}] },
+  { name:'Audio Asset Pipeline',   steps:[{id:'reference',name:'Reference Gathering',dept:'audio'},{id:'recording',name:'Recording',dept:'audio'},{id:'editing',name:'Editing',dept:'audio'},{id:'implementation',name:'Implementation',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}] },
+  { name:'Gameplay Mechanic Pipeline', steps:[{id:'design_doc',name:'Design Doc',dept:'design'},{id:'prototype',name:'Prototype',dept:'programming'},{id:'implementation',name:'Implementation',dept:'programming'},{id:'balancing',name:'Balancing',dept:'design'},{id:'qa',name:'QA',dept:'qa'}] },
+  { name:'Narrative Pipeline',     steps:[{id:'writing',name:'Writing',dept:'design'},{id:'review',name:'Review',dept:'design'},{id:'localization',name:'Localization',dept:'design'},{id:'implementation',name:'Implementation',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}] },
+  { name:'Level Pipeline',         steps:[{id:'blockout',name:'Blockout',dept:'art'},{id:'art_pass',name:'Art Pass',dept:'art'},{id:'lighting',name:'Lighting',dept:'art'},{id:'optimization',name:'Optimization',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}] },
+];
+
+async function runMigration() {
+  const MIGRATION_SQL = `CREATE TABLE IF NOT EXISTS pipeline_templates (id uuid primary key, project_id uuid references projects(id) on delete cascade, name text not null, steps jsonb default '[]', created_at timestamptz default now());`;
+  const { error } = await supabase.from('pipeline_templates').select('id').limit(1);
+  if (!error) return; // table already exists
+  const ref = (process.env.SUPABASE_URL||'').match(/\/\/([^.]+)\./)?.[1];
+  if (ref) {
+    const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+      method:'POST', headers:{'Authorization':`Bearer ${process.env.SUPABASE_SERVICE_KEY}`,'Content-Type':'application/json'},
+      body: JSON.stringify({ query: MIGRATION_SQL })
+    });
+    if (r.ok) { console.log('✅ pipeline_templates table created'); return; }
+  }
+  console.warn(`\n⚠️  Run this SQL in the Supabase dashboard:\n${MIGRATION_SQL}\n`);
+}
+
 const DEFAULT_PIPELINES = {
   entity: [{id:'concept_art',name:'Concept Art',dept:'art'},{id:'mesh',name:'Mesh',dept:'art'},{id:'texture',name:'Texture',dept:'art'},{id:'icon',name:'Icon',dept:'art'},{id:'engine_import',name:'Engine Import',dept:'art'},{id:'implemented',name:'Implemented',dept:'programming'},{id:'qa',name:'QA',dept:'qa'}],
   mechanic: [{id:'design_doc',name:'Design Doc',dept:'design'},{id:'prototype',name:'Prototype',dept:'programming'},{id:'animation',name:'Animation',dept:'art'},{id:'vfx',name:'VFX',dept:'art'},{id:'sound',name:'Sound',dept:'audio'},{id:'coded',name:'Coded',dept:'programming'},{id:'balanced',name:'Balanced',dept:'design'},{id:'qa',name:'QA',dept:'qa'}],
@@ -143,6 +169,9 @@ app.post('/api/projects', auth, async (req, res) => {
   const { error } = await supabase.from('projects').insert(project);
   if (error) return res.status(500).json({ error: error.message });
   await supabase.from('memberships').insert({ id: uuidv4(), user_id: req.session.userId, project_id: project.id, role: 'director', roles: ['director'], department: null, joined_at: new Date().toISOString() });
+  // Seed default pipeline templates (best-effort)
+  const defaultTpls = DEFAULT_PIPELINE_TEMPLATES.map(t => ({ id: uuidv4(), project_id: project.id, name: t.name, steps: t.steps, created_at: new Date().toISOString() }));
+  await supabase.from('pipeline_templates').insert(defaultTpls).catch(() => {});
   res.json({ ...project, inviteCode: project.invite_code, ownerId: project.owner_id });
 });
 
@@ -209,6 +238,35 @@ app.put('/api/projects/:id/members/:userId', auth, async (req, res) => {
 
 app.delete('/api/projects/:id/members/:userId', auth, async (req, res) => {
   await supabase.from('memberships').delete().eq('user_id', req.params.userId).eq('project_id', req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── PIPELINE TEMPLATES ───────────────────────────────
+app.get('/api/projects/:pid/pipeline-templates', auth, async (req, res) => {
+  const { data, error } = await supabase.from('pipeline_templates').select('*').eq('project_id', req.params.pid).order('created_at');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+app.post('/api/projects/:pid/pipeline-templates', auth, async (req, res) => {
+  const tpl = { id: uuidv4(), project_id: req.params.pid, name: req.body.name, steps: req.body.steps || [], created_at: new Date().toISOString() };
+  const { data, error } = await supabase.from('pipeline_templates').insert(tpl).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.put('/api/projects/:pid/pipeline-templates/:id', auth, async (req, res) => {
+  const updates = {};
+  if (req.body.name !== undefined) updates.name = req.body.name;
+  if (req.body.steps !== undefined) updates.steps = req.body.steps;
+  const { data, error } = await supabase.from('pipeline_templates').update(updates).eq('id', req.params.id).eq('project_id', req.params.pid).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete('/api/projects/:pid/pipeline-templates/:id', auth, async (req, res) => {
+  const { error } = await supabase.from('pipeline_templates').delete().eq('id', req.params.id).eq('project_id', req.params.pid);
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ ok: true });
 });
 
@@ -555,4 +613,7 @@ app.post('/api/upload/icon', auth, (req, res) => {
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.listen(PORT, () => console.log(`\n🧠 Hivemind v0.4 (Supabase) → http://localhost:${PORT}\n`));
+app.listen(PORT, async () => {
+  console.log(`\n🧠 Hivemind v0.4 (Supabase) → http://localhost:${PORT}\n`);
+  await runMigration();
+});
