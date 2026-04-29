@@ -4,14 +4,16 @@
   "description": "Hivemind - Game Production Platform",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "migrate": "node migrate.js"
   },
   "dependencies": {
+    "pg": "^8.11.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
-    "bcryptjs": "^2.4.3",
-    "uuid": "^9.0.0",
-    "@supabase/supabase-js": "^2.39.0",
-    "dotenv": "^16.3.1"
+    "uuid": "^9.0.0"
   }
 }
