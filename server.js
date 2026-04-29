@@ -227,7 +227,19 @@ app.put('/api/projects/:id/pipelines', auth, async (req, res) => {
 // ─── ENTITY TYPES ─────────────────────────────────────
 app.get('/api/projects/:pid/entity-types', auth, async (req, res) => {
   const { data } = await supabase.from('entity_types').select('*').eq('project_id', req.params.pid).order('created_at');
-  res.json(data || []);
+  const types = data || [];
+  // Pipeline inheritance: walk up the parent chain for subtypes with no pipeline
+  const typeMap = Object.fromEntries(types.map(t => [t.id, t]));
+  types.forEach(t => {
+    if (t.parent_id && (!t.pipeline || t.pipeline.length === 0)) {
+      let ancestor = typeMap[t.parent_id];
+      while (ancestor) {
+        if (ancestor.pipeline && ancestor.pipeline.length > 0) { t.pipeline = ancestor.pipeline; break; }
+        ancestor = ancestor.parent_id ? typeMap[ancestor.parent_id] : null;
+      }
+    }
+  });
+  res.json(types);
 });
 
 app.post('/api/projects/:pid/entity-types', auth, async (req, res) => {

@@ -988,7 +988,8 @@ function entityRow(e, showPipe) {
   const tags=(e.tags||[]).slice(0,3).map(tid=>{const tg=S.tags.find(t=>t.id===tid);return tg?`<span class="tag" style="background:${tg.color}22;color:${tg.color}">${tg.name}</span>`:''}).join('');
   const envColor = ENV_COLORS[e.environment||'not_in_engine']||'var(--text3)';
   const envLabel = ENV_LABELS[e.environment||'not_in_engine']||'Not In Engine';
-  const pipe = showPipe && type?.pipeline?.length ? `<div style="display:flex;gap:2px">${type.pipeline.slice(0,6).map(step=>{const st=e.pipeline?.[step.id]||'pending';const c={done:'var(--green)',in_progress:'var(--amber)',blocked:'var(--red)',pending:'var(--border2)'};return `<div style="width:12px;height:12px;border-radius:2px;background:${c[st]||c.pending}" title="${step.name}: ${st}"></div>`}).join('')}</div>` : '';
+  const effectivePipeline = getPipelineForType(type);
+  const pipe = showPipe && effectivePipeline.length ? `<div style="display:flex;gap:2px">${effectivePipeline.slice(0,6).map(step=>{const st=e.pipeline?.[step.id]||'pending';const c={done:'var(--green)',in_progress:'var(--amber)',blocked:'var(--red)',pending:'var(--border2)'};return `<div style="width:12px;height:12px;border-radius:2px;background:${c[st]||c.pending}" title="${step.name}: ${st}"></div>`}).join('')}</div>` : '';
   if (showPipe) return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${pipe}</td><td><span style="font-size:11px;color:${envColor}">${envLabel}</span></td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
   return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${tags||'—'}</td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
 }
@@ -1050,10 +1051,11 @@ async function openEntityView(entityId) {
       ${(entity.tags||[]).map(tid=>{const tg=S.tags.find(t=>t.id===tid);return tg?`<span class="tag" style="background:${tg.color}22;color:${tg.color};font-size:12px">${tg.name}</span>`:''}).join('')}
     </div></div></div>`;
 
-  if (type?.pipeline?.length) {
+  const pipelineSteps = getPipelineForType(type);
+  if (pipelineSteps.length) {
     html+=`<div class="card" style="margin-bottom:20px">
       <div class="card-title">Production Pipeline <span style="font-size:10px;font-weight:400;color:var(--text3)">(click to cycle)</span></div>
-      <div class="pipeline">${type.pipeline.map(step=>{const st=entity.pipeline?.[step.id]||'pending';return `<div class="pipe-step ${st}" onclick="cycleStep('${entityId}','${step.id}')"><div class="ps-name">${step.name}</div><div class="ps-dept">${step.dept||''}</div></div>`;}).join('')}</div>
+      <div class="pipeline">${pipelineSteps.map(step=>{const st=entity.pipeline?.[step.id]||'pending';return `<div class="pipe-step ${st}" onclick="cycleStep('${entityId}','${step.id}')"><div class="ps-name">${step.name}</div><div class="ps-dept">${step.dept||''}</div></div>`;}).join('')}</div>
     </div>`;
   }
 
@@ -1129,16 +1131,20 @@ async function openEntityView(entityId) {
 function getAllFields(type) {
   if (!type) return [];
   let fields = [];
-  // Support both parentId (frontend) and parent_id (from Supabase)
   const parentId = type.parentId || type.parent_id;
   if (parentId) {
     const parent = S.types.find(t=>t.id===parentId);
-    if (parent) {
-      // Recursively get parent fields too
-      fields = [...getAllFields(parent)];
-    }
+    if (parent) fields = [...getAllFields(parent)];
   }
   return [...fields, ...(type.fields||[])];
+}
+
+function getPipelineForType(type) {
+  if (!type) return [];
+  if (type.pipeline && type.pipeline.length) return type.pipeline;
+  const parentId = type.parentId || type.parent_id;
+  if (!parentId) return [];
+  return getPipelineForType(S.types.find(t=>t.id===parentId));
 }
 
 async function updateEntityStatus(id,status) {
@@ -1287,9 +1293,7 @@ async function submitCreateEntity() {
   const fields=collectFields(type);
   // Initialize pipeline steps as 'not_started' for all steps in the type's pipeline
   const pipeline = {};
-  if (type?.pipeline?.length) {
-    type.pipeline.forEach(step => { pipeline[step.id] = 'not_started'; });
-  }
+  getPipelineForType(type).forEach(step => { pipeline[step.id] = 'not_started'; });
   const raw=await api('POST',`/api/projects/${S.project.id}/entities`,{name,typeId,status,nature:window._selNature||null,tags:[...window._selTags],fields,pipeline});
   if (!raw?.id) return alert(raw?.error || 'Failed to create element');
   const entity={...raw, typeId: raw.type_id || raw.typeId, updatedAt: raw.updated_at || raw.updatedAt};
@@ -1436,7 +1440,7 @@ function renderSchema() {
 function openCreateType(parentId) {
   window._tf=[]; window._tp=[];
   const parent=parentId?S.types.find(t=>t.id===parentId):null;
-  if(parent&&parent.pipeline?.length) window._tp=JSON.parse(JSON.stringify(parent.pipeline));
+  if(parent) { const inherited=getPipelineForType(parent); if(inherited.length) window._tp=JSON.parse(JSON.stringify(inherited)); }
   showModal('modal-lg', parent?`Create Subclass of ${parent.name}`:'Create Class', buildTypeForm(null,parentId),[
     {label:'Cancel',onclick:'closeModal()'},
     {label:'Create Class',primary:true,onclick:'submitCreateType()'}
