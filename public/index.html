@@ -77,6 +77,8 @@ select option{background:var(--bg3)}
 .tbl td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
 .tbl tr:last-child td{border-bottom:none}
 .tbl tbody tr:hover td{background:var(--bg3);cursor:pointer}
+.row-actions{display:inline-flex;gap:4px;opacity:0;transition:opacity .15s}
+.tbl tbody tr:hover .row-actions{opacity:1}
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
 .badge-draft{background:var(--bg4);color:var(--text2)}
 .badge-in-progress{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
@@ -421,13 +423,44 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
       <div id="page-type-entities" class="page" style="display:none">
         <div class="sec-hd">
           <div class="sec-title" id="type-ent-title">Elements</div>
-          <div style="display:flex;gap:8px">
-            <input id="te-search" placeholder="🔍 Search..." style="width:200px" oninput="renderTypeEntities()">
-            <button class="btn btn-primary" onclick="openCreateEntity(S.currentTypeId)">+ New Element</button>
-          </div>
+          <button class="btn btn-primary" onclick="openCreateEntity(S.currentTypeId)">+ New Element</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">
+          <input id="te-search" placeholder="🔍 Search by name…" style="width:190px" oninput="renderTypeEntities()">
+          <select id="te-sort" style="width:170px" onchange="renderTypeEntities()">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="az">A → Z</option>
+            <option value="za">Z → A</option>
+          </select>
+          <select id="te-nature-filter" style="width:140px" onchange="renderTypeEntities()">
+            <option value="">All Natures</option>
+            <option value="original">Original</option>
+            <option value="variant">Variant</option>
+            <option value="reskin">Reskin</option>
+            <option value="port">Port</option>
+            <option value="outsourced">Outsourced</option>
+            <option value="procedural">Procedural</option>
+            <option value="placeholder">Placeholder</option>
+          </select>
+          <select id="te-status-filter" style="width:130px" onchange="renderTypeEntities()">
+            <option value="">All Statuses</option>
+            <option value="draft">draft</option>
+            <option value="in-progress">in-progress</option>
+            <option value="done">done</option>
+            <option value="blocked">blocked</option>
+          </select>
+          <select id="te-env-filter" style="width:150px" onchange="renderTypeEntities()">
+            <option value="">All Environments</option>
+            <option value="not_in_engine">Not In Engine</option>
+            <option value="zoo">ZOO</option>
+            <option value="gym">GYM</option>
+            <option value="playable_build">Playable Build</option>
+            <option value="iteration">Iteration</option>
+          </select>
         </div>
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="tbl"><thead><tr><th>Name</th><th>Status</th><th>Pipeline</th><th>Environment</th><th>Updated</th><th></th></tr></thead>
+          <table class="tbl"><thead><tr><th>Name</th><th>Nature</th><th>Status</th><th>Pipeline</th><th>Environment</th><th>Updated</th><th></th></tr></thead>
           <tbody id="te-tbody"></tbody></table>
         </div>
         <div id="detail-blocks-section"></div>
@@ -975,6 +1008,11 @@ function goPage(page, typeId) {
     const title=(t?.icon||'')+' '+(t?.name||'Entities');
     document.getElementById('type-ent-title').textContent=title;
     document.getElementById('topbar-title').textContent=title;
+    // Reset filters when switching to a different type
+    if (window._typeEntF && window._typeEntLastType !== typeId) {
+      window._typeEntF = { sort:'newest', search:'', natureId:'', statusId:'', envId:'' };
+    }
+    window._typeEntLastType = typeId;
     renderTypeEntities();
     renderDetailBlocks(typeId);
   }
@@ -1061,9 +1099,10 @@ function entityRow(e, showPipe) {
   const envLabel = ENV_LABELS[e.environment||'not_in_engine']||'Not In Engine';
   const effectivePipeline = getPipelineForType(type);
   const pipe = showPipe && effectivePipeline.length ? `<div style="display:flex;gap:2px">${effectivePipeline.slice(0,6).map(step=>{const st=e.pipeline?.[step.id]||'pending';const c={done:'var(--green)',in_progress:'var(--amber)',blocked:'var(--red)',pending:'var(--border2)'};return `<div style="width:12px;height:12px;border-radius:2px;background:${c[st]||c.pending}" title="${step.name}: ${st}"></div>`}).join('')}</div>` : '';
-  const dupBtn=`<button class="btn btn-xs btn-ghost" title="Duplicate" onclick="event.stopPropagation();duplicateEntity('${e.id}')">📋</button>`;
-  if (showPipe) return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${pipe}</td><td><span style="font-size:11px;color:${envColor}">${envLabel}</span></td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td><td style="width:36px">${dupBtn}</td></tr>`;
-  return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${tags||'—'}</td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td><td style="width:36px">${dupBtn}</td></tr>`;
+  const eName = e.name.replace(/'/g, "\\'");
+  const actions = `<div class="row-actions"><button class="btn btn-xs btn-ghost" title="Duplicate" onclick="event.stopPropagation();duplicateEntity('${e.id}')">📋 Duplicate</button>${isDirector()?`<button class="btn btn-xs btn-ghost btn-danger" title="Delete" onclick="event.stopPropagation();deleteEntity('${e.id}','${eName}')">🗑️ Delete</button>`:''}</div>`;
+  if (showPipe) return `<tr class="entity-row" onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${pipe}</td><td><span style="font-size:11px;color:${envColor}">${envLabel}</span></td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td><td style="white-space:nowrap">${actions}</td></tr>`;
+  return `<tr class="entity-row" onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${tags||'—'}</td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td><td style="white-space:nowrap">${actions}</td></tr>`;
 }
 
 function renderEntitiesTable() {
@@ -1101,10 +1140,28 @@ function renderEntitiesTable() {
 }
 
 function renderTypeEntities() {
-  const search=(document.getElementById('te-search')?.value||'').toLowerCase();
-  let list=S.entities.filter(e=>e.typeId===S.currentTypeId);
-  if(search) list=list.filter(e=>e.name.toLowerCase().includes(search));
-  document.getElementById('te-tbody').innerHTML=list.map(e=>entityRow(e,true)).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:40px">No elements yet. Click + New Element to create one.</td></tr>';
+  if (!window._typeEntF) window._typeEntF = { sort:'newest', search:'', natureId:'', statusId:'', envId:'' };
+  const f = window._typeEntF;
+  const searchEl = document.getElementById('te-search');
+  const sortEl = document.getElementById('te-sort');
+  const natureEl = document.getElementById('te-nature-filter');
+  const statusEl = document.getElementById('te-status-filter');
+  const envEl = document.getElementById('te-env-filter');
+  if (searchEl) f.search = searchEl.value.toLowerCase();
+  if (sortEl) f.sort = sortEl.value;
+  if (natureEl) f.natureId = natureEl.value;
+  if (statusEl) f.statusId = statusEl.value;
+  if (envEl) f.envId = envEl.value;
+  let list = S.entities.filter(e => e.typeId === S.currentTypeId);
+  if (f.search) list = list.filter(e => e.name.toLowerCase().includes(f.search));
+  if (f.natureId) list = list.filter(e => e.nature === f.natureId);
+  if (f.statusId) list = list.filter(e => (e.status||'draft') === f.statusId);
+  if (f.envId) list = list.filter(e => (e.environment||'not_in_engine') === f.envId);
+  if (f.sort === 'az') list.sort((a,b) => a.name.localeCompare(b.name));
+  else if (f.sort === 'za') list.sort((a,b) => b.name.localeCompare(a.name));
+  else if (f.sort === 'oldest') list.sort((a,b) => new Date(a.createdAt||a.created_at||0) - new Date(b.createdAt||b.created_at||0));
+  else list.sort((a,b) => new Date(b.createdAt||b.created_at||0) - new Date(a.createdAt||a.created_at||0));
+  document.getElementById('te-tbody').innerHTML = list.map(e => entityRow(e, true)).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:40px">No elements yet. Click + New Element to create one.</td></tr>';
 }
 
 function populateTypeFilter() {
@@ -1474,11 +1531,20 @@ async function submitEditEntity(id) {
   closeModal(); openEntityView(id);
 }
 
-async function deleteEntity(id) {
-  if(!confirm('Delete this entity?')) return;
-  await api('DELETE',`/api/projects/${S.project.id}/entities/${id}`);
-  S.entities=S.entities.filter(e=>e.id!==id);
-  renderSidebarTypes(); closeEntityView();
+async function deleteEntity(id, name) {
+  const label = name || (S.entities.find(e=>e.id===id)?.name) || 'this element';
+  if (!confirm('Delete "' + label + '"? This cannot be undone.')) return;
+  await api('DELETE', `/api/projects/${S.project.id}/entities/${id}`);
+  S.entities = S.entities.filter(e => e.id !== id);
+  renderSidebarTypes();
+  // If in entity view, close it; if in a table, re-render
+  if (document.getElementById('entity-view').classList.contains('on')) {
+    closeEntityView();
+  } else if (document.getElementById('page-type-entities').style.display !== 'none') {
+    renderTypeEntities();
+  } else if (document.getElementById('page-entities').style.display !== 'none') {
+    renderEntitiesTable();
+  }
 }
 
 async function duplicateEntity(id) {
@@ -2520,27 +2586,46 @@ function loadExcalidraw(cb) {
   if (window._excalidrawLoading) { window._excalidrawCallbacks.push(cb); return; }
   window._excalidrawLoading = true;
   window._excalidrawCallbacks.push(cb);
-  function onLoad() {
-    if (window.React && window.ReactDOM && window.ExcalidrawLib) {
-      window._excalidrawLoaded = true;
-      window._excalidrawLoading = false;
-      window._excalidrawCallbacks.forEach(fn => fn());
-      window._excalidrawCallbacks = [];
-    }
-  }
   const scripts = [
-    'https://unpkg.com/react@18/umd/react.production.min.js',
-    'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-    'https://unpkg.com/@excalidraw/excalidraw/dist/excalidraw.production.min.js'
+    'https://unpkg.com/react@17/umd/react.production.min.js',
+    'https://unpkg.com/react-dom@17/umd/react-dom.production.min.js',
+    'https://unpkg.com/@excalidraw/excalidraw@0.17.6/dist/excalidraw.production.min.js'
   ];
-  let loaded = 0;
-  scripts.forEach(src => {
-    if (document.querySelector('script[src="'+src+'"]')) { loaded++; if(loaded===scripts.length) onLoad(); return; }
+  function loadNext(i) {
+    if (i >= scripts.length) {
+      console.log('[Excalidraw] All scripts loaded. Checking window.ExcalidrawLib:', !!window.ExcalidrawLib);
+      if (window.React && window.ReactDOM && window.ExcalidrawLib) {
+        window._excalidrawLoaded = true;
+        window._excalidrawLoading = false;
+        window._excalidrawCallbacks.forEach(fn => fn());
+        window._excalidrawCallbacks = [];
+      } else {
+        console.error('[Excalidraw] Missing globals after load — React:', !!window.React, 'ReactDOM:', !!window.ReactDOM, 'ExcalidrawLib:', !!window.ExcalidrawLib);
+        window._excalidrawLoading = false;
+        window._excalidrawCallbacks.forEach(fn => fn(new Error('ExcalidrawLib not available')));
+        window._excalidrawCallbacks = [];
+      }
+      return;
+    }
+    const src = scripts[i];
+    if (document.querySelector('script[src="'+src+'"]')) {
+      console.log('[Excalidraw] Script already present:', src);
+      loadNext(i + 1);
+      return;
+    }
+    console.log('[Excalidraw] Loading script', i+1, '/', scripts.length, ':', src);
     const s = document.createElement('script');
     s.src = src;
-    s.onload = () => { loaded++; if(loaded===scripts.length) onLoad(); };
+    s.onload = () => { console.log('[Excalidraw] Loaded:', src); loadNext(i + 1); };
+    s.onerror = (e) => {
+      console.error('[Excalidraw] Failed to load:', src, e);
+      window._excalidrawLoading = false;
+      window._excalidrawCallbacks.forEach(fn => fn(new Error('Failed to load: ' + src)));
+      window._excalidrawCallbacks = [];
+    };
     document.head.appendChild(s);
-  });
+  }
+  loadNext(0);
 }
 
 function getDetailBlocks(typeId) {
@@ -2679,7 +2764,7 @@ function moveDbBlock(typeId, blockId, dir) {
 function deleteDbBlock(typeId, blockId) {
   if (!confirm('Delete this block? This cannot be undone.')) return;
   if (window._excalidrawRoots[blockId]) {
-    try { window._excalidrawRoots[blockId].unmount(); } catch(e) {}
+    try { ReactDOM.unmountComponentAtNode(window._excalidrawRoots[blockId]); } catch(e) {}
     delete window._excalidrawRoots[blockId];
   }
   const blocks = getDetailBlocks(typeId).filter(b => b.id !== blockId);
@@ -2730,11 +2815,23 @@ async function onDbImageFile(typeId, blockId, input) {
 function mountWhiteboard(typeId, block, idx) {
   const container = document.getElementById('dbwb-'+block.id);
   if (!container) return;
-  loadExcalidraw(() => {
+  console.log('[Excalidraw] mountWhiteboard called for block:', block.id);
+  loadExcalidraw((err) => {
     const loading = document.getElementById('dbwb-loading-'+block.id);
     if (loading) loading.style.display = 'none';
+    if (err) {
+      console.error('[Excalidraw] Load error:', err);
+      container.innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px">⚠️ Whiteboard failed to load. Check console.</div>';
+      return;
+    }
+    if (!window.ExcalidrawLib || !window.ExcalidrawLib.Excalidraw) {
+      console.error('[Excalidraw] ExcalidrawLib.Excalidraw not found. ExcalidrawLib keys:', Object.keys(window.ExcalidrawLib||{}));
+      container.innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px">⚠️ Whiteboard failed to load. Check console.</div>';
+      return;
+    }
+    // Unmount any existing React 17 render in this container
     if (window._excalidrawRoots[block.id]) {
-      try { window._excalidrawRoots[block.id].unmount(); } catch(e) {}
+      try { ReactDOM.unmountComponentAtNode(window._excalidrawRoots[block.id]); } catch(e) {}
     }
     let parsedElements = [], parsedAppState = {};
     if (block.content) {
@@ -2757,11 +2854,13 @@ function mountWhiteboard(typeId, block, idx) {
       viewModeEnabled: !canE,
     };
     try {
-      const root = ReactDOM.createRoot(container);
-      root.render(React.createElement(ExcalidrawLib.Excalidraw, props));
-      window._excalidrawRoots[block.id] = root;
+      console.log('[Excalidraw] Mounting with React 17 render into:', container.id);
+      ReactDOM.render(React.createElement(ExcalidrawLib.Excalidraw, props), container);
+      window._excalidrawRoots[block.id] = container;
+      console.log('[Excalidraw] Mounted successfully for block:', block.id);
     } catch(e) {
-      container.innerHTML = '<p style="color:var(--red);padding:20px">Failed to load Excalidraw: '+e.message+'</p>';
+      console.error('[Excalidraw] Mount error:', e);
+      container.innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px">⚠️ Whiteboard failed to load. Check console.</div>';
     }
   });
 }
