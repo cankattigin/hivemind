@@ -339,15 +339,46 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
       <div id="page-entities" class="page" style="display:none">
         <div class="sec-hd">
           <div class="sec-title">All Elements</div>
-          <div style="display:flex;gap:8px">
-            <input id="ent-search" placeholder="🔍 Search..." style="width:200px" oninput="renderEntitiesTable()">
-            <select id="ent-type-filter" style="width:160px" onchange="renderEntitiesTable()"><option value="">All classes</option></select>
-            <select id="ent-nature-filter" style="width:150px" onchange="renderEntitiesTable()"><option value="">All natures</option>${NATURES.map(n=>`<option value="${n.id}">${n.icon} ${n.name}</option>`).join('')}</select>
-            <button class="btn btn-primary" onclick="openCreateEntity()">+ New Element</button>
-          </div>
+          <button class="btn btn-primary" onclick="openCreateEntity()">+ New Element</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">
+          <input id="ent-search" placeholder="🔍 Search by name…" style="width:190px" oninput="renderEntitiesTable()">
+          <select id="ent-sort" style="width:170px" onchange="renderEntitiesTable()">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="az">A → Z</option>
+            <option value="za">Z → A</option>
+            <option value="updated">Recently Updated</option>
+          </select>
+          <select id="ent-type-filter" style="width:150px" onchange="renderEntitiesTable()"><option value="">All Classes</option></select>
+          <select id="ent-nature-filter" style="width:140px" onchange="renderEntitiesTable()">
+            <option value="">All Natures</option>
+            <option value="original">Original</option>
+            <option value="variant">Variant</option>
+            <option value="reskin">Reskin</option>
+            <option value="port">Port</option>
+            <option value="outsourced">Outsourced</option>
+            <option value="procedural">Procedural</option>
+            <option value="placeholder">Placeholder</option>
+          </select>
+          <select id="ent-status-filter" style="width:130px" onchange="renderEntitiesTable()">
+            <option value="">All Statuses</option>
+            <option value="draft">draft</option>
+            <option value="in-progress">in-progress</option>
+            <option value="done">done</option>
+            <option value="blocked">blocked</option>
+          </select>
+          <select id="ent-env-filter" style="width:150px" onchange="renderEntitiesTable()">
+            <option value="">All Environments</option>
+            <option value="not_in_engine">Not In Engine</option>
+            <option value="zoo">ZOO</option>
+            <option value="gym">GYM</option>
+            <option value="playable_build">Playable Build</option>
+            <option value="iteration">Iteration</option>
+          </select>
         </div>
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="tbl"><thead><tr><th>Name</th><th>Type</th><th>Nature</th><th>Status</th><th>Tags</th><th>Updated</th></tr></thead>
+          <table class="tbl"><thead><tr><th>Name</th><th>Type</th><th>Nature</th><th>Status</th><th>Tags</th><th>Updated</th><th></th></tr></thead>
           <tbody id="ent-tbody"></tbody></table>
         </div>
       </div>
@@ -360,7 +391,7 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
           </div>
         </div>
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="tbl"><thead><tr><th>Name</th><th>Status</th><th>Pipeline</th><th>Environment</th><th>Updated</th></tr></thead>
+          <table class="tbl"><thead><tr><th>Name</th><th>Status</th><th>Pipeline</th><th>Environment</th><th>Updated</th><th></th></tr></thead>
           <tbody id="te-tbody"></tbody></table>
         </div>
       </div>
@@ -992,28 +1023,64 @@ function entityRow(e, showPipe) {
   const envLabel = ENV_LABELS[e.environment||'not_in_engine']||'Not In Engine';
   const effectivePipeline = getPipelineForType(type);
   const pipe = showPipe && effectivePipeline.length ? `<div style="display:flex;gap:2px">${effectivePipeline.slice(0,6).map(step=>{const st=e.pipeline?.[step.id]||'pending';const c={done:'var(--green)',in_progress:'var(--amber)',blocked:'var(--red)',pending:'var(--border2)'};return `<div style="width:12px;height:12px;border-radius:2px;background:${c[st]||c.pending}" title="${step.name}: ${st}"></div>`}).join('')}</div>` : '';
-  if (showPipe) return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${pipe}</td><td><span style="font-size:11px;color:${envColor}">${envLabel}</span></td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
-  return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${tags||'—'}</td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td></tr>`;
+  const dupBtn=`<button class="btn btn-xs btn-ghost" title="Duplicate" onclick="event.stopPropagation();duplicateEntity('${e.id}')">📋</button>`;
+  if (showPipe) return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${pipe}</td><td><span style="font-size:11px;color:${envColor}">${envLabel}</span></td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td><td style="width:36px">${dupBtn}</td></tr>`;
+  return `<tr onclick="openEntityView('${e.id}')"><td style="font-weight:500">${e.name}</td><td>${type?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;background:${type.color}22;color:${type.color}">${type.icon} ${type.name}</span>`:''}</td><td>${natureBadge(e.nature)}</td><td><span class="badge badge-${e.status||'draft'}">${e.status||'draft'}</span></td><td>${tags||'—'}</td><td style="color:var(--text3);font-size:12px">${ago(e.updatedAt)}</td><td style="width:36px">${dupBtn}</td></tr>`;
 }
 
 function renderEntitiesTable() {
-  const search=v('ent-search').toLowerCase(), typeId=v('ent-type-filter'), natureId=v('ent-nature-filter');
-  let list=S.entities;
-  if(search) list=list.filter(e=>e.name.toLowerCase().includes(search));
-  if(typeId) list=list.filter(e=>e.typeId===typeId);
-  if(natureId) list=list.filter(e=>e.nature===natureId);
-  document.getElementById('ent-tbody').innerHTML=list.map(e=>entityRow(e,false)).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:40px">No elements found</td></tr>';
+  // Persist sort/filter state in session
+  if(!window._entF) window._entF={sort:'newest',search:'',typeId:'',natureId:'',statusId:'',envId:''};
+  const f=window._entF;
+  const searchEl=document.getElementById('ent-search');
+  const sortEl=document.getElementById('ent-sort');
+  const typeEl=document.getElementById('ent-type-filter');
+  const natureEl=document.getElementById('ent-nature-filter');
+  const statusEl=document.getElementById('ent-status-filter');
+  const envEl=document.getElementById('ent-env-filter');
+  // Read current UI values and persist
+  if(searchEl) f.search=searchEl.value.toLowerCase();
+  if(sortEl) f.sort=sortEl.value;
+  if(typeEl) f.typeId=typeEl.value;
+  if(natureEl) f.natureId=natureEl.value;
+  if(statusEl) f.statusId=statusEl.value;
+  if(envEl) f.envId=envEl.value;
+  // Restore UI values in case called after re-render
+  if(sortEl && sortEl.value!==f.sort) sortEl.value=f.sort;
+  let list=[...S.entities];
+  if(f.search) list=list.filter(e=>e.name.toLowerCase().includes(f.search));
+  if(f.typeId) list=list.filter(e=>e.typeId===f.typeId);
+  if(f.natureId) list=list.filter(e=>e.nature===f.natureId);
+  if(f.statusId) list=list.filter(e=>(e.status||'draft')===f.statusId);
+  if(f.envId) list=list.filter(e=>(e.environment||'not_in_engine')===f.envId);
+  // Sort
+  if(f.sort==='az') list.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(f.sort==='za') list.sort((a,b)=>b.name.localeCompare(a.name));
+  else if(f.sort==='oldest') list.sort((a,b)=>new Date(a.createdAt||a.created_at||0)-new Date(b.createdAt||b.created_at||0));
+  else if(f.sort==='updated') list.sort((a,b)=>new Date(b.updatedAt||b.updated_at||0)-new Date(a.updatedAt||a.updated_at||0));
+  else list.sort((a,b)=>new Date(b.createdAt||b.created_at||0)-new Date(a.createdAt||a.created_at||0)); // newest
+  document.getElementById('ent-tbody').innerHTML=list.map(e=>entityRow(e,false)).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:40px">No elements found</td></tr>';
 }
 
 function renderTypeEntities() {
   const search=(document.getElementById('te-search')?.value||'').toLowerCase();
   let list=S.entities.filter(e=>e.typeId===S.currentTypeId);
   if(search) list=list.filter(e=>e.name.toLowerCase().includes(search));
-  document.getElementById('te-tbody').innerHTML=list.map(e=>entityRow(e,true)).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:40px">No elements yet. Click + New Element to create one.</td></tr>';
+  document.getElementById('te-tbody').innerHTML=list.map(e=>entityRow(e,true)).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:40px">No elements yet. Click + New Element to create one.</td></tr>';
 }
 
 function populateTypeFilter() {
-  document.getElementById('ent-type-filter').innerHTML='<option value="">All classes</option>'+S.types.map(t=>`<option value="${t.id}">${t.icon} ${t.name}</option>`).join('');
+  document.getElementById('ent-type-filter').innerHTML='<option value="">All Classes</option>'+S.types.map(t=>`<option value="${t.id}">${t.icon} ${t.name}</option>`).join('');
+  // Restore persisted filter/sort state
+  const f=window._entF;
+  if(f){
+    const s=document.getElementById('ent-search'); if(s) s.value=f.search||'';
+    const so=document.getElementById('ent-sort'); if(so) so.value=f.sort||'newest';
+    const tf=document.getElementById('ent-type-filter'); if(tf) tf.value=f.typeId||'';
+    const nf=document.getElementById('ent-nature-filter'); if(nf) nf.value=f.natureId||'';
+    const sf=document.getElementById('ent-status-filter'); if(sf) sf.value=f.statusId||'';
+    const ef=document.getElementById('ent-env-filter'); if(ef) ef.value=f.envId||'';
+  }
 }
 
 // ═══ ENTITY VIEW ════════════════════════════════════════
@@ -1037,6 +1104,7 @@ async function openEntityView(entityId) {
     </select>
     ${isLeadOrDirector()?`<button class="btn btn-sm" onclick="openAssignModal('${entityId}')">📋 Assign</button>`:''}
     ${canEditDesign()?`<button class="btn btn-sm" onclick="openEditEntity('${entityId}')">✏️ Edit</button>`:''}
+    <button class="btn btn-sm" title="Duplicate element" onclick="duplicateEntity('${entityId}')">📋 Duplicate</button>
     ${isDirector()?`<button class="btn btn-sm btn-danger" onclick="deleteEntity('${entityId}')">🗑</button>`:''}
   `;
 
@@ -1373,6 +1441,30 @@ async function deleteEntity(id) {
   await api('DELETE',`/api/projects/${S.project.id}/entities/${id}`);
   S.entities=S.entities.filter(e=>e.id!==id);
   renderSidebarTypes(); closeEntityView();
+}
+
+async function duplicateEntity(id) {
+  const src=S.entities.find(e=>e.id===id); if(!src) return;
+  const type=S.types.find(t=>t.id===src.typeId);
+  // Reset pipeline steps to not_started
+  const pipeline={};
+  getPipelineForType(type).forEach(step=>{ pipeline[step.id]='not_started'; });
+  const payload={
+    name:'Copy of '+src.name,
+    typeId:src.typeId,
+    nature:src.nature||null,
+    tags:[...(src.tags||[])],
+    fields:{...(src.fields||{})},
+    status:'draft',
+    environment:'not_in_engine',
+    pipeline
+  };
+  const raw=await api('POST',`/api/projects/${S.project.id}/entities`,payload);
+  if(!raw?.id) return alert(raw?.error||'Failed to duplicate element');
+  const entity={...raw, typeId:raw.type_id||raw.typeId, updatedAt:raw.updated_at||raw.updatedAt};
+  S.entities.push(entity);
+  renderSidebarTypes();
+  openEntityView(entity.id);
 }
 
 // ═══ COMMENTS ═══════════════════════════════════════════
