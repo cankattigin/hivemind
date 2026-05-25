@@ -147,6 +147,14 @@ select option{background:var(--bg3)}
 .cmt-type-change_request{background:var(--amber-bg);color:var(--amber)}
 .cmt-type-limitation{background:var(--red-bg);color:var(--red)}
 .cmt-type-signoff{background:var(--green-bg);color:var(--green)}
+.cmt-reply{margin-left:24px;margin-top:6px;border-left:2px solid var(--border);padding-left:10px}
+.cmt-reply .cmt{border-color:var(--border);background:var(--bg3);font-size:12px}
+.cmt-reply .cmt-author{font-size:11px}
+.cmt-reply .cmt-time{font-size:10px}
+.cmt-actions{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.cmt-reply-input{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.cmt-reply-input textarea{font-size:12px;min-height:50px;padding:6px 8px;resize:vertical}
+.cmt-reply-input .cmt-reply-btns{display:flex;gap:6px}
 .invite-code{font-family:monospace;font-size:22px;font-weight:700;letter-spacing:4px;color:var(--accent2);background:var(--accent-bg);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 20px;text-align:center;cursor:pointer}
 .prog-bar{height:3px;background:var(--bg4);border-radius:10px;overflow:hidden;margin-top:5px}
 .prog-fill{height:100%;border-radius:10px;transition:width .3s}
@@ -1468,20 +1476,65 @@ async function duplicateEntity(id) {
 }
 
 // ═══ COMMENTS ═══════════════════════════════════════════
+function cmtHtml(c, isReply) {
+  const canDelete = S.user && (S.user.id === c.authorId || S.user.accountType === 'director');
+  const sizeStyle = isReply ? 'font-size:12px;' : 'font-size:13px;';
+  return `
+    <div class="cmt" id="cmt-${c.id}">
+      <div class="cmt-hd">
+        <div class="avatar avatar-sm">${(c.authorName||'?')[0].toUpperCase()}</div>
+        <span class="cmt-author">${c.authorName}</span>
+        ${!isReply?`<span class="badge cmt-type-${c.type}" style="font-size:10px;padding:1px 6px">${c.type.replace('_',' ')}</span>`:''}
+        <span class="cmt-time">${ago(c.createdAt||c.created_at)}</span>
+      </div>
+      <div style="${sizeStyle}color:var(--text2);line-height:1.5;margin-top:6px">${linkifyText(c.text)}</div>
+      <div class="cmt-actions">
+        ${!isReply&&!c.resolved?`<button class="btn btn-xs btn-success" onclick="resolveComment('${c.id}')">✓ Resolve</button>`:''}
+        ${!isReply&&c.resolved?'<div style="font-size:11px;color:var(--green)">✓ Resolved</div>':''}
+        ${!isReply?`<button class="btn btn-xs" style="font-size:11px;color:var(--text3)" onclick="toggleReplyInput('${c.id}')">↩ Reply</button>`:''}
+        ${canDelete?`<button class="btn btn-xs" style="font-size:11px;color:var(--red)" onclick="deleteComment('${c.id}',${isReply})">🗑️</button>`:''}
+      </div>
+      ${!isReply?`<div class="cmt-reply-input" id="reply-input-${c.id}" style="display:none">
+        <textarea id="reply-text-${c.id}" placeholder="Write a reply..."></textarea>
+        <div class="cmt-reply-btns">
+          <button class="btn btn-primary btn-sm" onclick="submitReply('${c.id}')">Reply</button>
+          <button class="btn btn-sm" onclick="toggleReplyInput('${c.id}')">Cancel</button>
+        </div>
+      </div>`:''}
+    </div>`;
+}
+
 async function loadComments(entityId) {
   const comments=await api('GET',`/api/comments/${entityId}`);
-  document.getElementById('ev-comments').innerHTML=comments.length?comments.map(c=>`
-    <div class="cmt">
-      <div class="cmt-hd">
-        <div class="avatar avatar-sm">${c.authorName[0].toUpperCase()}</div>
-        <span class="cmt-author">${c.authorName}</span>
-        <span class="badge cmt-type-${c.type}" style="font-size:10px;padding:1px 6px">${c.type.replace('_',' ')}</span>
-        <span class="cmt-time">${ago(c.createdAt)}</span>
-      </div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-top:6px">${linkifyText(c.text)}</div>
-      ${!c.resolved?`<button class="btn btn-xs btn-success" style="margin-top:8px" onclick="resolveComment('${c.id}')">✓ Resolve</button>`:'<div style="font-size:11px;color:var(--green);margin-top:6px">✓ Resolved</div>'}
-    </div>`).join(''):'<p style="color:var(--text3);font-size:12px;text-align:center;padding:16px 0">No activity yet</p>';
+  const top=comments.filter(c=>!c.parentId);
+  const replies=comments.filter(c=>c.parentId);
+  if(!comments.length){
+    document.getElementById('ev-comments').innerHTML='<p style="color:var(--text3);font-size:12px;text-align:center;padding:16px 0">No activity yet</p>';
+    return;
+  }
+  document.getElementById('ev-comments').innerHTML=top.map(c=>{
+    const children=replies.filter(r=>r.parentId===c.id);
+    return cmtHtml(c,false)+(children.length?`<div class="cmt-reply">${children.map(r=>cmtHtml(r,true)).join('')}</div>`:'');
+  }).join('');
 }
+
+function toggleReplyInput(parentId) {
+  const el=document.getElementById(`reply-input-${parentId}`);
+  if(!el)return;
+  const visible=el.style.display!=='none';
+  el.style.display=visible?'none':'flex';
+  el.style.flexDirection='column';
+  if(!visible) document.getElementById(`reply-text-${parentId}`)?.focus();
+}
+
+async function submitReply(parentId) {
+  const ta=document.getElementById(`reply-text-${parentId}`);
+  const text=ta?.value.trim();
+  if(!text||!S.currentEntityId) return;
+  await api('POST','/api/comments',{entityId:S.currentEntityId,text,type:'comment',parentId});
+  loadComments(S.currentEntityId);
+}
+
 async function submitComment() {
   const text=document.getElementById('cmt-input').value.trim();
   if(!text||!S.currentEntityId) return;
@@ -1489,9 +1542,32 @@ async function submitComment() {
   document.getElementById('cmt-input').value='';
   loadComments(S.currentEntityId);
 }
+
 async function resolveComment(id) {
   await api('PUT',`/api/comments/${id}`,{resolved:true});
   loadComments(S.currentEntityId);
+}
+
+async function deleteComment(id, isReply) {
+  if(!confirm('Delete this comment?')) return;
+  const res=await api('DELETE',`/api/comments/${id}`);
+  if(res && res.error) { alert(res.error); return; }
+  // Remove from DOM: if top-level, also remove the reply block that follows
+  const el=document.getElementById(`cmt-${id}`);
+  if(el){
+    if(!isReply){
+      // Remove sibling reply container if present
+      const next=el.nextElementSibling;
+      if(next && next.classList.contains('cmt-reply')) next.remove();
+    } else {
+      // If parent reply-block is now empty, remove it
+      const replyBlock=el.closest('.cmt-reply');
+      el.remove();
+      if(replyBlock && !replyBlock.children.length) replyBlock.remove();
+      return;
+    }
+    el.remove();
+  }
 }
 
 // ═══ SCHEMA STUDIO ══════════════════════════════════════

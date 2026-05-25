@@ -503,21 +503,35 @@ app.get('/api/projects/:pid/review-queue', auth, async (req, res) => {
 // ─── COMMENTS ─────────────────────────────────────────
 app.get('/api/comments/:entityId', auth, async (req, res) => {
   const { data } = await supabase.from('comments').select('*').eq('entity_id', req.params.entityId).order('created_at');
-  res.json((data || []).map(c => ({ ...c, entityId: c.entity_id, authorId: c.author_id, authorName: c.author_name })));
+  res.json((data || []).map(c => ({ ...c, entityId: c.entity_id, authorId: c.author_id, authorName: c.author_name, parentId: c.parent_id || null })));
 });
 
 app.post('/api/comments', auth, async (req, res) => {
   const user = await getUser(req.session.userId);
-  const comment = { id: uuidv4(), entity_id: req.body.entityId, text: req.body.text, type: req.body.type || 'comment', author_id: req.session.userId, author_name: user?.username || 'Unknown', resolved: false, created_at: new Date().toISOString() };
+  const comment = { id: uuidv4(), entity_id: req.body.entityId, text: req.body.text, type: req.body.type || 'comment', author_id: req.session.userId, author_name: user?.username || 'Unknown', resolved: false, created_at: new Date().toISOString(), parent_id: req.body.parentId || null };
   const { data, error } = await supabase.from('comments').insert(comment).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ ...data, entityId: data.entity_id, authorId: data.author_id, authorName: data.author_name });
+  res.json({ ...data, entityId: data.entity_id, authorId: data.author_id, authorName: data.author_name, parentId: data.parent_id || null });
 });
 
 app.put('/api/comments/:id', auth, async (req, res) => {
   const { data, error } = await supabase.from('comments').update(req.body).eq('id', req.params.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+app.delete('/api/comments/:id', auth, async (req, res) => {
+  const user = await getUser(req.session.userId);
+  const { data: comment } = await supabase.from('comments').select('*').eq('id', req.params.id).single();
+  if (!comment) return res.status(404).json({ error: 'Comment not found' });
+  if (comment.author_id !== req.session.userId && user?.account_type !== 'director') {
+    return res.status(403).json({ error: 'Not authorized' });
+  }
+  // Delete replies first, then the comment itself
+  await supabase.from('comments').delete().eq('parent_id', req.params.id);
+  const { error } = await supabase.from('comments').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // ─── ACTIVITY ─────────────────────────────────────────
