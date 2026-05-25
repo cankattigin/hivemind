@@ -250,7 +250,10 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
 .db-image-wrap{display:flex;flex-direction:column;gap:10px}
 .db-img-preview{width:100%;border-radius:var(--radius);display:block}
 .db-caption-input{font-size:12px;color:var(--text2);font-style:italic;padding:6px 10px}
-.db-wb-container{height:500px;border-radius:var(--radius);overflow:hidden;position:relative;border:1px solid var(--border)}
+.db-wb-container{height:1000px;border-radius:var(--radius) var(--radius) 0 0;overflow:hidden;position:relative;border:1px solid var(--border);border-bottom:none}
+.db-wb-wrap{display:flex;flex-direction:column}
+.db-wb-resize-handle{height:20px;width:100%;background:var(--bg4);border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);cursor:ns-resize;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:14px;user-select:none;flex-shrink:0}
+.db-wb-resize-handle:hover{background:var(--bg3);color:var(--text2)}
 .db-wb-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text3);font-size:13px;background:var(--bg3);z-index:1}
 .db-spinner{width:28px;height:28px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:db-spin .8s linear infinite}
 @keyframes db-spin{to{transform:rotate(360deg)}}
@@ -1566,9 +1569,28 @@ async function duplicateEntity(id) {
   const raw=await api('POST',`/api/projects/${S.project.id}/entities`,payload);
   if(!raw?.id) return alert(raw?.error||'Failed to duplicate element');
   const entity={...raw, typeId:raw.type_id||raw.typeId, updatedAt:raw.updated_at||raw.updatedAt};
-  S.entities.push(entity);
+  S.entities.unshift(entity);
   renderSidebarTypes();
-  openEntityView(entity.id);
+  if (document.getElementById('page-type-entities').style.display !== 'none') {
+    renderTypeEntities();
+  } else {
+    renderEntitiesTable();
+  }
+  showToast('Element duplicated ✓');
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('_toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = '_toast';
+    toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--bg4);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius);padding:9px 18px;font-size:13px;z-index:99999;pointer-events:none;opacity:0;transition:opacity .2s';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
 
 // ═══ COMMENTS ═══════════════════════════════════════════
@@ -2701,8 +2723,11 @@ function renderDbBlock(typeId, b, i, total, canEdit) {
   if (b.type === 'richtext') {
     html += '<textarea class="db-richtext-area" placeholder="Write something..." '+(canE?'onblur="saveDbRichText(\''+typeId+'\',\''+b.id+'\',this.value)"':'readonly')+'>'+escHtml(b.content||'')+'</textarea>';
   } else if (b.type === 'whiteboard') {
-    html += '<div class="db-wb-container" id="dbwb-'+b.id+'">';
+    html += '<div class="db-wb-wrap" id="dbwb-wrap-'+b.id+'">';
+    html += '<div class="db-wb-container" id="dbwb-'+b.id+'" style="height:'+(b.height||1000)+'px">';
     html += '<div class="db-wb-loading" id="dbwb-loading-'+b.id+'"><div class="db-spinner"></div><span>Loading Excalidraw…</span></div>';
+    html += '</div>';
+    html += '<div class="db-wb-resize-handle" id="dbwb-rh-'+b.id+'" onmousedown="startWbResize(event,\''+typeId+'\',\''+b.id+'\')">⠿</div>';
     html += '</div>';
   } else if (b.type === 'image') {
     html += '<div class="db-image-wrap">';
@@ -2810,6 +2835,29 @@ async function onDbImageFile(typeId, blockId, input) {
   const blocks = getDetailBlocks(typeId);
   const b = blocks.find(b => b.id === blockId);
   if (b) { b.content = url; saveDetailBlocks(typeId, blocks).then(() => renderDetailBlocks(typeId)); }
+}
+
+function startWbResize(e, typeId, blockId) {
+  e.preventDefault();
+  const container = document.getElementById('dbwb-'+blockId);
+  if (!container) return;
+  const startY = e.clientY;
+  const startH = container.offsetHeight;
+  function onMove(ev) {
+    const newH = Math.max(300, startH + (ev.clientY - startY));
+    container.style.height = newH + 'px';
+  }
+  function onUp(ev) {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    const finalH = Math.max(300, startH + (ev.clientY - startY));
+    container.style.height = finalH + 'px';
+    const blocks = getDetailBlocks(typeId);
+    const b = blocks.find(b => b.id === blockId);
+    if (b) { b.height = finalH; saveDetailBlocks(typeId, blocks); }
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 function mountWhiteboard(typeId, block, idx) {
