@@ -327,7 +327,7 @@ app.post('/api/projects/:pid/entity-types', auth, async (req, res) => {
 
 app.put('/api/projects/:pid/entity-types/:id', auth, async (req, res) => {
   const updates = {};
-  ['name','category','color','icon','fields','pipeline'].forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+  ['name','category','color','icon','fields','pipeline','detail_blocks'].forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
   const { data, error } = await supabase.from('entity_types').update(updates).eq('id', req.params.id).eq('project_id', req.params.pid).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ ...data, parentId: data.parent_id });

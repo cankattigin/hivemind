@@ -92,6 +92,7 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 | fields | jsonb | custom field definitions array |
 | pipeline | jsonb | ordered step array for this type |
 | parent_id | uuid | nullable FK → entity_types (makes it a Subclass) |
+| detail_blocks | jsonb | array of content blocks (richtext / whiteboard / image) |
 | created_at | timestamptz | |
 | created_by | uuid | FK → users |
 

@@ -232,6 +232,34 @@ body.theme-girl input:focus,body.theme-girl select:focus,body.theme-girl textare
 body.theme-girl .auth-tab.on{background:#ff69b4;color:#fff}
 body.theme-girl .auth-type-btn:hover,body.theme-girl .auth-type-btn.on{border-color:#ff69b4;background:#ffe0ef}
 body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b4;background:#ffe0ef;color:#ff1493}
+/* ─── DETAIL BLOCKS ─── */
+.db-section{margin-top:24px}
+.db-section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.db-section-title{font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.db-block{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:14px;overflow:hidden}
+.db-block-hd{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.db-block-title-input{flex:1;background:transparent;border:none;color:var(--text);font-size:14px;font-weight:600;padding:2px 4px;border-radius:4px;outline:none}
+.db-block-title-input:focus{background:var(--bg4)}
+.db-block-badge{font-size:10px;color:var(--text3);background:var(--bg4);padding:2px 7px;border-radius:10px;flex-shrink:0}
+.db-block-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}
+.db-block-body{padding:14px}
+.db-richtext-area{width:100%;min-height:200px;font-size:13px;line-height:1.7;resize:vertical;background:transparent;border:1px solid transparent;border-radius:var(--radius);padding:8px;color:var(--text);font-family:inherit}
+.db-richtext-area:focus{border-color:var(--accent);background:var(--bg3)}
+.db-image-wrap{display:flex;flex-direction:column;gap:10px}
+.db-img-preview{width:100%;border-radius:var(--radius);display:block}
+.db-caption-input{font-size:12px;color:var(--text2);font-style:italic;padding:6px 10px}
+.db-wb-container{height:500px;border-radius:var(--radius);overflow:hidden;position:relative;border:1px solid var(--border)}
+.db-wb-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text3);font-size:13px;background:var(--bg3);z-index:1}
+.db-spinner{width:28px;height:28px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:db-spin .8s linear infinite}
+@keyframes db-spin{to{transform:rotate(360deg)}}
+.db-add-picker{display:flex;gap:10px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:14px}
+.db-type-card{flex:1;padding:14px 10px;border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;text-align:center;transition:all .15s;background:transparent}
+.db-type-card:hover{border-color:var(--accent);background:var(--accent-bg)}
+.db-type-card .dtc-icon{font-size:24px;margin-bottom:6px}
+.db-type-card .dtc-label{font-size:12px;font-weight:600;color:var(--text)}
+.db-type-card .dtc-desc{font-size:10px;color:var(--text3);margin-top:2px}
+.db-saved-indicator{font-size:11px;color:var(--green);opacity:0;transition:opacity .4s}
+.db-saved-indicator.show{opacity:1}
 </style>
 </head>
 <body>
@@ -402,6 +430,7 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
           <table class="tbl"><thead><tr><th>Name</th><th>Status</th><th>Pipeline</th><th>Environment</th><th>Updated</th><th></th></tr></thead>
           <tbody id="te-tbody"></tbody></table>
         </div>
+        <div id="detail-blocks-section"></div>
       </div>
       <div id="page-schema" class="page" style="display:none">
         <div class="sec-hd">
@@ -947,6 +976,7 @@ function goPage(page, typeId) {
     document.getElementById('type-ent-title').textContent=title;
     document.getElementById('topbar-title').textContent=title;
     renderTypeEntities();
+    renderDetailBlocks(typeId);
   }
   else if (page==='schema') { show('page-schema'); renderSchema(); }
   else if (page==='tags') { show('page-tags'); renderTags(); }
@@ -2472,6 +2502,268 @@ function renderFieldValue(field, val) {
     return `<div class="fld-val">${linkifyText(val)}</div>`;
   }
   return null; // Use default rendering
+}
+
+// ═══ DETAIL BLOCKS ══════════════════════════════════════
+window._excalidrawRoots = {};
+window._excalidrawLoaded = false;
+window._excalidrawLoading = false;
+window._excalidrawCallbacks = [];
+
+function canEditDetailBlocks() {
+  if (isDirector()) return true;
+  return S.membership?.roles?.some(r => r.includes('designer') || r === 'director') || false;
+}
+
+function loadExcalidraw(cb) {
+  if (window._excalidrawLoaded) { cb(); return; }
+  if (window._excalidrawLoading) { window._excalidrawCallbacks.push(cb); return; }
+  window._excalidrawLoading = true;
+  window._excalidrawCallbacks.push(cb);
+  function onLoad() {
+    if (window.React && window.ReactDOM && window.ExcalidrawLib) {
+      window._excalidrawLoaded = true;
+      window._excalidrawLoading = false;
+      window._excalidrawCallbacks.forEach(fn => fn());
+      window._excalidrawCallbacks = [];
+    }
+  }
+  const scripts = [
+    'https://unpkg.com/react@18/umd/react.production.min.js',
+    'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
+    'https://unpkg.com/@excalidraw/excalidraw/dist/excalidraw.production.min.js'
+  ];
+  let loaded = 0;
+  scripts.forEach(src => {
+    if (document.querySelector('script[src="'+src+'"]')) { loaded++; if(loaded===scripts.length) onLoad(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => { loaded++; if(loaded===scripts.length) onLoad(); };
+    document.head.appendChild(s);
+  });
+}
+
+function getDetailBlocks(typeId) {
+  const t = S.types.find(t => t.id === typeId);
+  return (t && Array.isArray(t.detail_blocks)) ? t.detail_blocks : [];
+}
+
+async function saveDetailBlocks(typeId, blocks) {
+  const t = S.types.find(t => t.id === typeId);
+  if (t) t.detail_blocks = blocks;
+  await api('PUT', '/api/projects/'+S.project.id+'/entity-types/'+typeId, { detail_blocks: blocks });
+  const ind = document.getElementById('db-saved-'+typeId);
+  if (ind) { ind.classList.add('show'); setTimeout(() => ind.classList.remove('show'), 2000); }
+}
+
+function renderDetailBlocks(typeId) {
+  const container = document.getElementById('detail-blocks-section');
+  if (!container) return;
+  const blocks = getDetailBlocks(typeId);
+  const canEdit = canEditDetailBlocks();
+
+  let html = '<div class="db-section">';
+  html += '<div class="db-section-hd">';
+  html += '<span class="db-section-title">Detail Blocks</span>';
+  html += '<div style="display:flex;align-items:center;gap:10px">';
+  html += '<span class="db-saved-indicator" id="db-saved-'+typeId+'">Saved ✓</span>';
+  if (canEdit) html += '<button class="btn btn-sm" id="db-add-btn-'+typeId+'" onclick="toggleDbPicker(\''+typeId+'\')">+ Add Block</button>';
+  html += '</div></div>';
+
+  html += '<div id="db-picker-'+typeId+'" style="display:none" class="db-add-picker">';
+  html += '<div class="db-type-card" onclick="addDetailBlock(\''+typeId+'\',\'richtext\')"><div class="dtc-icon">📝</div><div class="dtc-label">Rich Text</div><div class="dtc-desc">Notes & descriptions</div></div>';
+  html += '<div class="db-type-card" onclick="addDetailBlock(\''+typeId+'\',\'whiteboard\')"><div class="dtc-icon">🎨</div><div class="dtc-label">Whiteboard</div><div class="dtc-desc">Excalidraw canvas</div></div>';
+  html += '<div class="db-type-card" onclick="addDetailBlock(\''+typeId+'\',\'image\')"><div class="dtc-icon">🖼️</div><div class="dtc-label">Image</div><div class="dtc-desc">Upload reference art</div></div>';
+  html += '</div>';
+
+  html += '<div id="db-blocks-'+typeId+'">';
+  html += renderDbBlocksHtml(typeId, blocks, canEdit);
+  html += '</div>';
+  html += '</div>';
+
+  container.innerHTML = html;
+  // Mount whiteboards after DOM is ready
+  blocks.forEach((b, i) => {
+    if (b.type === 'whiteboard') {
+      setTimeout(() => mountWhiteboard(typeId, b, i), 50);
+    }
+  });
+}
+
+function renderDbBlocksHtml(typeId, blocks, canEdit) {
+  if (!blocks.length) return '<p style="color:var(--text3);font-size:13px;padding:8px 0">No blocks yet.' + (canEdit ? ' Click <b>+ Add Block</b> to create one.' : '') + '</p>';
+  return blocks.map((b, i) => renderDbBlock(typeId, b, i, blocks.length, canEdit)).join('');
+}
+
+function renderDbBlock(typeId, b, i, total, canEdit) {
+  const canE = canEdit;
+  let html = '<div class="db-block" id="dblock-'+b.id+'">';
+  // Header
+  html += '<div class="db-block-hd">';
+  const typeLabels = { richtext: '📝 Rich Text', whiteboard: '🎨 Whiteboard', image: '🖼️ Image' };
+  html += '<input class="db-block-title-input" value="'+escHtml(b.title)+'" placeholder="Block title" '+(canE?'onblur="saveDbTitle(\''+typeId+'\',\''+b.id+'\',this.value)"':'readonly')+'>';
+  html += '<span class="db-block-badge">'+(typeLabels[b.type]||b.type)+'</span>';
+  if (canE) {
+    html += '<div class="db-block-actions">';
+    if (i > 0)        html += '<button class="btn btn-ghost btn-xs" title="Move up"    onclick="moveDbBlock(\''+typeId+'\',\''+b.id+'\', -1)">↑</button>';
+    if (i < total-1)  html += '<button class="btn btn-ghost btn-xs" title="Move down"  onclick="moveDbBlock(\''+typeId+'\',\''+b.id+'\',  1)">↓</button>';
+    html += '<button class="btn btn-ghost btn-xs btn-danger" title="Delete" onclick="deleteDbBlock(\''+typeId+'\',\''+b.id+'\')">🗑️</button>';
+    html += '</div>';
+  }
+  html += '</div>';
+  // Body
+  html += '<div class="db-block-body">';
+  if (b.type === 'richtext') {
+    html += '<textarea class="db-richtext-area" placeholder="Write something..." '+(canE?'onblur="saveDbRichText(\''+typeId+'\',\''+b.id+'\',this.value)"':'readonly')+'>'+escHtml(b.content||'')+'</textarea>';
+  } else if (b.type === 'whiteboard') {
+    html += '<div class="db-wb-container" id="dbwb-'+b.id+'">';
+    html += '<div class="db-wb-loading" id="dbwb-loading-'+b.id+'"><div class="db-spinner"></div><span>Loading Excalidraw…</span></div>';
+    html += '</div>';
+  } else if (b.type === 'image') {
+    html += '<div class="db-image-wrap">';
+    if (b.content) {
+      html += '<img src="'+escHtml(b.content)+'" class="db-img-preview" alt="Block image">';
+    }
+    if (canE) {
+      html += '<div style="display:flex;gap:8px;align-items:center">';
+      html += '<button class="btn btn-sm" onclick="triggerDbImageUpload(\''+typeId+'\',\''+b.id+'\')">📷 '+(b.content?'Change':'Upload')+' Image</button>';
+      html += '<input type="file" id="db-img-file-'+b.id+'" accept="image/*" style="display:none" onchange="onDbImageFile(\''+typeId+'\',\''+b.id+'\',this)">';
+      html += '</div>';
+    }
+    html += '<input class="db-caption-input" placeholder="Add a caption…" value="'+escHtml(b.caption||'')+'" '+(canE?'onblur="saveDbCaption(\''+typeId+'\',\''+b.id+'\',this.value)"':'readonly')+'>';
+    html += '</div>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toggleDbPicker(typeId) {
+  const p = document.getElementById('db-picker-'+typeId);
+  if (p) p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+}
+
+function addDetailBlock(typeId, type) {
+  const picker = document.getElementById('db-picker-'+typeId);
+  if (picker) picker.style.display = 'none';
+  const blocks = getDetailBlocks(typeId);
+  const defaultTitles = { richtext: 'Notes', whiteboard: 'Whiteboard', image: 'Reference Image' };
+  const newBlock = {
+    id: crypto.randomUUID(),
+    type,
+    title: defaultTitles[type] || 'Block',
+    content: '',
+    caption: '',
+    created_at: new Date().toISOString()
+  };
+  blocks.push(newBlock);
+  saveDetailBlocks(typeId, blocks).then(() => {
+    renderDetailBlocks(typeId);
+  });
+}
+
+function moveDbBlock(typeId, blockId, dir) {
+  const blocks = getDetailBlocks(typeId);
+  const idx = blocks.findIndex(b => b.id === blockId);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= blocks.length) return;
+  [blocks[idx], blocks[newIdx]] = [blocks[newIdx], blocks[idx]];
+  saveDetailBlocks(typeId, blocks).then(() => renderDetailBlocks(typeId));
+}
+
+function deleteDbBlock(typeId, blockId) {
+  if (!confirm('Delete this block? This cannot be undone.')) return;
+  if (window._excalidrawRoots[blockId]) {
+    try { window._excalidrawRoots[blockId].unmount(); } catch(e) {}
+    delete window._excalidrawRoots[blockId];
+  }
+  const blocks = getDetailBlocks(typeId).filter(b => b.id !== blockId);
+  saveDetailBlocks(typeId, blocks).then(() => renderDetailBlocks(typeId));
+}
+
+function saveDbTitle(typeId, blockId, val) {
+  const blocks = getDetailBlocks(typeId);
+  const b = blocks.find(b => b.id === blockId);
+  if (b) { b.title = val; saveDetailBlocks(typeId, blocks); }
+}
+
+function saveDbRichText(typeId, blockId, val) {
+  const blocks = getDetailBlocks(typeId);
+  const b = blocks.find(b => b.id === blockId);
+  if (b) { b.content = val; saveDetailBlocks(typeId, blocks); }
+}
+
+function saveDbCaption(typeId, blockId, val) {
+  const blocks = getDetailBlocks(typeId);
+  const b = blocks.find(b => b.id === blockId);
+  if (b) { b.caption = val; saveDetailBlocks(typeId, blocks); }
+}
+
+function triggerDbImageUpload(typeId, blockId) {
+  const inp = document.getElementById('db-img-file-'+blockId);
+  if (inp) inp.click();
+}
+
+async function onDbImageFile(typeId, blockId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { alert('Image too large. Max 5MB.'); return; }
+  const arrayBuffer = await file.arrayBuffer();
+  const response = await fetch('/api/upload/icon', {
+    method: 'POST',
+    headers: { 'Content-Type': file.type },
+    body: arrayBuffer
+  });
+  const data = await response.json();
+  const url = data.url || null;
+  if (!url) { alert('Upload failed.'); return; }
+  const blocks = getDetailBlocks(typeId);
+  const b = blocks.find(b => b.id === blockId);
+  if (b) { b.content = url; saveDetailBlocks(typeId, blocks).then(() => renderDetailBlocks(typeId)); }
+}
+
+function mountWhiteboard(typeId, block, idx) {
+  const container = document.getElementById('dbwb-'+block.id);
+  if (!container) return;
+  loadExcalidraw(() => {
+    const loading = document.getElementById('dbwb-loading-'+block.id);
+    if (loading) loading.style.display = 'none';
+    if (window._excalidrawRoots[block.id]) {
+      try { window._excalidrawRoots[block.id].unmount(); } catch(e) {}
+    }
+    let parsedElements = [], parsedAppState = {};
+    if (block.content) {
+      try { const s = JSON.parse(block.content); parsedElements = s.elements||[]; parsedAppState = s.appState||{}; } catch(e) {}
+    }
+    const canE = canEditDetailBlocks();
+    let debounceTimer = null;
+    const onChange = (elements, appState) => {
+      if (!canE) return;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const blocks = getDetailBlocks(typeId);
+        const b = blocks.find(b => b.id === block.id);
+        if (b) { b.content = JSON.stringify({ elements, appState }); saveDetailBlocks(typeId, blocks); }
+      }, 2000);
+    };
+    const props = {
+      initialData: { elements: parsedElements, appState: { ...parsedAppState, theme: document.body.classList.contains('theme-umut')||document.body.classList.contains('theme-girl') ? 'light' : 'dark' } },
+      onChange,
+      viewModeEnabled: !canE,
+    };
+    try {
+      const root = ReactDOM.createRoot(container);
+      root.render(React.createElement(ExcalidrawLib.Excalidraw, props));
+      window._excalidrawRoots[block.id] = root;
+    } catch(e) {
+      container.innerHTML = '<p style="color:var(--red);padding:20px">Failed to load Excalidraw: '+e.message+'</p>';
+    }
+  });
 }
 
 // ═══ INIT ═══════════════════════════════════════════════
