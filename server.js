@@ -27,9 +27,15 @@ app.use(session({
   cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
-function auth(req, res, next) {
+async function auth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const user = await getUser(req.session.userId);
+  if (user?.status === 'archived') return res.status(403).json({ error: 'Account archived' });
   next();
+}
+
+function getDisplayName(user) {
+  return user?.display_name || user?.username || 'Unknown';
 }
 
 async function getUser(id) {
@@ -102,7 +108,7 @@ async function logActivity(projectId, userId, entityId, action, detail) {
   const user = await getUser(userId);
   await supabase.from('activity').insert({
     id: uuidv4(), project_id: projectId, entity_id: entityId,
-    user_id: userId, username: user?.username || 'Unknown',
+    user_id: userId, username: getDisplayName(user),
     action, detail, created_at: new Date().toISOString()
   });
 }
@@ -125,6 +131,7 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   const { data: user } = await supabase.from('users').select('*').eq('username', username).single();
   if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: 'Invalid credentials' });
+  if (user.status === 'archived') return res.status(403).json({ error: 'Account archived' });
   req.session.userId = user.id;
   res.json({ id: user.id, username: user.username, accountType: user.account_type });
 });
@@ -139,8 +146,8 @@ app.get('/api/auth/me', async (req, res) => {
 });
 
 app.get('/api/users', auth, async (req, res) => {
-  const { data } = await supabase.from('users').select('id, username, account_type');
-  res.json((data || []).map(u => ({ id: u.id, username: u.username, accountType: u.account_type })));
+  const { data } = await supabase.from('users').select('id, username, account_type, display_name, status');
+  res.json((data || []).map(u => ({ id: u.id, username: u.username, accountType: u.account_type, displayName: getDisplayName(u), status: u.status || 'active' })));
 });
 
 // ─── PROJECTS ─────────────────────────────────────────
@@ -195,14 +202,28 @@ app.post('/api/projects', auth, async (req, res) => {
 app.get('/api/projects', auth, async (req, res) => {
   const { data: memberships } = await supabase.from('memberships').select('*').eq('user_id', req.session.userId);
   if (!memberships?.length) return res.json([]);
-  const ids = memberships.map(m => m.project_id);
+  // Filter out removed/archived memberships (non-directors)
+  const user = await getUser(req.session.userId);
+  const activeMemberships = user?.account_type === 'director'
+    ? memberships
+    : memberships.filter(m => !m.status || m.status === 'active');
+  if (!activeMemberships.length) return res.json([]);
+  const ids = activeMemberships.map(m => m.project_id);
   const { data: projects } = await supabase.from('projects').select('*').in('id', ids);
-  res.json((projects || []).map(p => ({ ...p, inviteCode: p.invite_code, ownerId: p.owner_id, membership: memberships.find(m => m.project_id === p.id) })));
+  res.json((projects || []).map(p => ({ ...p, inviteCode: p.invite_code, ownerId: p.owner_id, membership: activeMemberships.find(m => m.project_id === p.id) })));
 });
 
 app.get('/api/projects/:id', auth, async (req, res) => {
   const { data } = await supabase.from('projects').select('*').eq('id', req.params.id).single();
   if (!data) return res.status(404).json({ error: 'Not found' });
+  // Block removed/archived members from accessing the project
+  const user = await getUser(req.session.userId);
+  if (user?.account_type !== 'director') {
+    const m = await getMembership(req.session.userId, req.params.id);
+    if (m && (m.status === 'removed' || m.status === 'archived')) {
+      return res.status(403).json({ error: 'Access denied: membership removed or archived' });
+    }
+  }
   res.json({ ...data, inviteCode: data.invite_code, ownerId: data.owner_id });
 });
 
@@ -236,14 +257,17 @@ app.get('/api/projects/:id/members', auth, async (req, res) => {
   const { data: memberships } = await supabase.from('memberships').select('*').eq('project_id', req.params.id);
   if (!memberships?.length) return res.json([]);
   const userIds = memberships.map(m => m.user_id);
-  const { data: users } = await supabase.from('users').select('id, username, account_type').in('id', userIds);
+  const { data: users } = await supabase.from('users').select('id, username, account_type, display_name, status').in('id', userIds);
   res.json(memberships.map(m => {
     const user = users?.find(u => u.id === m.user_id);
     return {
       ...m,
       userId: m.user_id,
       username: user?.username || 'Unknown',
+      displayName: getDisplayName(user),
       accountType: user?.account_type,
+      userStatus: user?.status || 'active',
+      membershipStatus: m.status || 'active',
       tiers: Array.isArray(m.tiers) && m.tiers.length > 0 ? m.tiers : ['member'],
       job_title: m.job_title || ''
     };
@@ -494,9 +518,9 @@ app.get('/api/projects/:pid/tasks', auth, async (req, res) => {
   const assigneeIds = [...new Set((tasks || []).map(t => t.assignee_id).filter(Boolean))];
   const [{ data: entities }, { data: users }] = await Promise.all([
     entityIds.length ? supabase.from('entities').select('id, name').in('id', entityIds) : Promise.resolve({ data: [] }),
-    assigneeIds.length ? supabase.from('users').select('id, username').in('id', assigneeIds) : Promise.resolve({ data: [] })
+    assigneeIds.length ? supabase.from('users').select('id, username, display_name').in('id', assigneeIds) : Promise.resolve({ data: [] })
   ]);
-  res.json((tasks || []).map(t => ({ ...t, assigneeId: t.assignee_id, entityId: t.entity_id, stepId: t.step_id, stepName: t.step_name, entityName: entities?.find(e => e.id === t.entity_id)?.name || 'Unknown', assigneeName: users?.find(u => u.id === t.assignee_id)?.username || 'Unassigned' })));
+  res.json((tasks || []).map(t => ({ ...t, assigneeId: t.assignee_id, entityId: t.entity_id, stepId: t.step_id, stepName: t.step_name, entityName: entities?.find(e => e.id === t.entity_id)?.name || 'Unknown', assigneeName: getDisplayName(users?.find(u => u.id === t.assignee_id)) || 'Unassigned' })));
 });
 
 app.post('/api/projects/:pid/tasks', auth, async (req, res) => {
@@ -510,10 +534,11 @@ app.post('/api/projects/:pid/tasks', auth, async (req, res) => {
   }
 
   await supabase.from('tasks').delete().eq('entity_id', req.body.entityId).eq('step_id', req.body.stepId).eq('project_id', req.params.pid);
-  const task = { id: uuidv4(), project_id: req.params.pid, entity_id: req.body.entityId, step_id: req.body.stepId, step_name: req.body.stepName, dept: req.body.dept || '', assignee_id: req.body.assigneeId, due_date: req.body.dueDate || null, status: 'not_started', assigned_by: req.session.userId, assigned_by_name: user?.username || '', note: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  const task = { id: uuidv4(), project_id: req.params.pid, entity_id: req.body.entityId, step_id: req.body.stepId, step_name: req.body.stepName, dept: req.body.dept || '', assignee_id: req.body.assigneeId, due_date: req.body.dueDate || null, status: 'not_started', assigned_by: req.session.userId, assigned_by_name: getDisplayName(user), note: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
   const { data, error } = await supabase.from('tasks').insert(task).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  logActivity(req.params.pid, req.session.userId, req.body.entityId, 'task_assigned', `${req.body.stepName} → ${(await getUser(req.body.assigneeId))?.username}`);
+  const assignee = await getUser(req.body.assigneeId);
+  logActivity(req.params.pid, req.session.userId, req.body.entityId, 'task_assigned', `${req.body.stepName} → ${getDisplayName(assignee)}`);
   res.json({ ...data, assigneeId: data.assignee_id, entityId: data.entity_id, stepId: data.step_id, stepName: data.step_name });
 });
 
@@ -547,9 +572,9 @@ app.get('/api/projects/:pid/review-queue', auth, async (req, res) => {
   const assigneeIds = [...new Set((tasks || []).map(t => t.assignee_id).filter(Boolean))];
   const [{ data: entities }, { data: users }] = await Promise.all([
     entityIds.length ? supabase.from('entities').select('id, name').in('id', entityIds) : Promise.resolve({ data: [] }),
-    assigneeIds.length ? supabase.from('users').select('id, username').in('id', assigneeIds) : Promise.resolve({ data: [] })
+    assigneeIds.length ? supabase.from('users').select('id, username, display_name').in('id', assigneeIds) : Promise.resolve({ data: [] })
   ]);
-  res.json((tasks || []).map(t => ({ ...t, assigneeId: t.assignee_id, entityId: t.entity_id, stepId: t.step_id, stepName: t.step_name, entityName: entities?.find(e => e.id === t.entity_id)?.name || 'Unknown', assigneeName: users?.find(u => u.id === t.assignee_id)?.username || 'Unknown' })));
+  res.json((tasks || []).map(t => ({ ...t, assigneeId: t.assignee_id, entityId: t.entity_id, stepId: t.step_id, stepName: t.step_name, entityName: entities?.find(e => e.id === t.entity_id)?.name || 'Unknown', assigneeName: getDisplayName(users?.find(u => u.id === t.assignee_id)) || 'Unknown' })));
 });
 
 // ─── COMMENTS ─────────────────────────────────────────
@@ -560,7 +585,7 @@ app.get('/api/comments/:entityId', auth, async (req, res) => {
 
 app.post('/api/comments', auth, async (req, res) => {
   const user = await getUser(req.session.userId);
-  const comment = { id: uuidv4(), entity_id: req.body.entityId, text: req.body.text, type: req.body.type || 'comment', author_id: req.session.userId, author_name: user?.username || 'Unknown', resolved: false, created_at: new Date().toISOString(), parent_id: req.body.parentId || null };
+  const comment = { id: uuidv4(), entity_id: req.body.entityId, text: req.body.text, type: req.body.type || 'comment', author_id: req.session.userId, author_name: getDisplayName(user), resolved: false, created_at: new Date().toISOString(), parent_id: req.body.parentId || null };
   const { data, error } = await supabase.from('comments').insert(comment).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ ...data, entityId: data.entity_id, authorId: data.author_id, authorName: data.author_name, parentId: data.parent_id || null });
@@ -657,6 +682,65 @@ app.get('/api/projects/:pid/reports', auth, async (req, res) => {
   });
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   res.json({ completionByType, tasksByPerson: Object.values(tasksByPerson), envBreakdown, unassigned: unassigned.slice(0, 30), weekActivity: (activity || []).filter(a => a.created_at > weekAgo) });
+});
+
+// ─── MEMBER ARCHIVE / REMOVE / RESTORE ───────────────────
+
+// Archive user company-wide (director only)
+app.post('/api/users/:id/archive', auth, async (req, res) => {
+  const requester = await getUser(req.session.userId);
+  if (requester?.account_type !== 'director') return res.status(403).json({ error: 'Directors only' });
+  await supabase.from('users').update({ status: 'archived' }).eq('id', req.params.id);
+  await supabase.from('memberships').update({ status: 'archived' }).eq('user_id', req.params.id);
+  // Flag all their non-done tasks
+  const { data: tasks } = await supabase.from('tasks').select('id').eq('assignee_id', req.params.id).neq('status', 'done');
+  if (tasks?.length) {
+    const ids = tasks.map(t => t.id);
+    await supabase.from('tasks').update({ needs_reassignment: true }).in('id', ids);
+  }
+  res.json({ ok: true });
+});
+
+// Restore archived user (director only)
+app.post('/api/users/:id/restore', auth, async (req, res) => {
+  const requester = await getUser(req.session.userId);
+  if (requester?.account_type !== 'director') return res.status(403).json({ error: 'Directors only' });
+  await supabase.from('users').update({ status: 'active' }).eq('id', req.params.id);
+  await supabase.from('memberships').update({ status: 'active' }).eq('user_id', req.params.id);
+  // Clear needs_reassignment on their tasks
+  await supabase.from('tasks').update({ needs_reassignment: false }).eq('assignee_id', req.params.id);
+  res.json({ ok: true });
+});
+
+// Remove from specific project (director only)
+app.delete('/api/projects/:pid/members/:userId/remove', auth, async (req, res) => {
+  const requester = await getUser(req.session.userId);
+  if (requester?.account_type !== 'director') return res.status(403).json({ error: 'Directors only' });
+  await supabase.from('memberships').update({ status: 'removed' }).eq('user_id', req.params.userId).eq('project_id', req.params.pid);
+  // Flag their non-done tasks in this project
+  const { data: tasks } = await supabase.from('tasks').select('id').eq('assignee_id', req.params.userId).eq('project_id', req.params.pid).neq('status', 'done');
+  if (tasks?.length) {
+    const ids = tasks.map(t => t.id);
+    await supabase.from('tasks').update({ needs_reassignment: true }).in('id', ids);
+  }
+  res.json({ ok: true });
+});
+
+// Restore to specific project (director only)
+app.post('/api/projects/:pid/members/:userId/restore', auth, async (req, res) => {
+  const requester = await getUser(req.session.userId);
+  if (requester?.account_type !== 'director') return res.status(403).json({ error: 'Directors only' });
+  await supabase.from('memberships').update({ status: 'active' }).eq('user_id', req.params.userId).eq('project_id', req.params.pid);
+  res.json({ ok: true });
+});
+
+// Update display name (director only)
+app.put('/api/users/:id/display-name', auth, async (req, res) => {
+  const requester = await getUser(req.session.userId);
+  if (requester?.account_type !== 'director') return res.status(403).json({ error: 'Directors only' });
+  const displayName = req.body.displayName || null;
+  await supabase.from('users').update({ display_name: displayName }).eq('id', req.params.id);
+  res.json({ ok: true });
 });
 
 // ─── FILE UPLOAD (Entity Icons) ──────────────────────────

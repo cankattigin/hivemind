@@ -695,6 +695,10 @@ async function api(method, url, body) {
   return r.json();
 }
 
+function displayName(userId, name) {
+  return window._archivedUsers?.has(userId) ? name + ' 💀' : name;
+}
+
 // ═══ AUTH ═══════════════════════════════════════════════
 let selectedAccountType = 'director';
 function authTab(t) {
@@ -1317,9 +1321,10 @@ async function openEntityView(entityId) {
       const st = task?.status||'not_started';
       const stClass = {not_started:'pending', in_progress:'in-progress', in_review:'in-progress', done:'done', blocked:'blocked'}[st]||'pending';
       const canUpdate = canUpdatePipelineStep(step.dept);
-      return `<div class="pipe-step ${stClass}" ${canUpdate?`onclick="cycleStep('${entityId}','${step.id}')"`:''} style="${canUpdate?'':'opacity:.6;cursor:not-allowed'}" title="${task?.assigneeName||'Unassigned'} · ${st.replace('_',' ')}${canUpdate?'':' · no permission'}">
+      const assigneeDisplay = task ? displayName(task.assigneeId, task.assigneeName) : 'Unassigned';
+      return `<div class="pipe-step ${stClass}" ${canUpdate?`onclick="cycleStep('${entityId}','${step.id}')"`:''} style="${canUpdate?'':'opacity:.6;cursor:not-allowed'}" title="${assigneeDisplay} · ${st.replace('_',' ')}${canUpdate?'':' · no permission'}">
         <div class="ps-name">${step.name}</div>
-        <div class="ps-dept">${task?.assigneeName||step.dept||'unassigned'}</div>
+        <div class="ps-dept">${task?assigneeDisplay:step.dept||'unassigned'}</div>
       </div>`;
     }).join('');
     html = html.replace(/<div class="pipeline">.*?<\/div>/s, `<div class="pipeline">${pipeHtml}</div>`);
@@ -1634,7 +1639,7 @@ function cmtHtml(c, isReply) {
     <div class="cmt" id="cmt-${c.id}">
       <div class="cmt-hd">
         <div class="avatar avatar-sm">${(c.authorName||'?')[0].toUpperCase()}</div>
-        <span class="cmt-author">${c.authorName}</span>
+        <span class="cmt-author">${displayName(c.authorId, c.authorName)}</span>
         ${!isReply?`<span class="badge cmt-type-${c.type}" style="font-size:10px;padding:1px 6px">${c.type.replace('_',' ')}</span>`:''}
         <span class="cmt-time">${ago(c.createdAt||c.created_at)}</span>
       </div>
@@ -2118,7 +2123,7 @@ async function toggleMemberTier(userId, checkbox) {
 }
 
 async function renderTeam() {
-  const isDir = S.project?.ownerId === S.user?.id;
+  const isDir = isDirector();
   document.getElementById('team-actions').innerHTML = isDir ? `
     <button class="btn btn-sm" onclick="openManageRoles()">⚙️ Manage Roles</button>
     <button class="btn btn-sm" onclick="openManageDepts()">🏢 Manage Departments</button>
@@ -2128,46 +2133,104 @@ async function renderTeam() {
   if (isDir) document.getElementById('invite-code-display').textContent = S.project.inviteCode;
   const members = await api('GET',`/api/projects/${S.project.id}/members`);
   window._teamMembers = members;
-  document.getElementById('team-list').innerHTML = `<div class="card" style="padding:0;overflow:hidden">
-    <table class="tbl"><thead><tr>
-      <th>Member</th>
-      ${isDir?'<th>Job Title</th>':''}
-      <th>Role(s)</th>
-      <th>Department</th>
-      ${isDir?'<th>Tiers</th>':''}
-      ${isDir?'<th></th>':''}
-    </tr></thead>
-    <tbody>${members.map(m=>`<tr>
+
+  // Build archived user ID set for skull display
+  window._archivedUsers = new Set(members.filter(m=>m.userStatus==='archived').map(m=>m.userId));
+
+  function memberDisplayName(m) {
+    const name = m.displayName || m.username;
+    return m.userStatus === 'archived' ? name + ' 💀' : name;
+  }
+
+  const activeMembers = members.filter(m => (m.membershipStatus || 'active') === 'active' && m.userStatus !== 'archived');
+  const exMembers = members.filter(m => (m.membershipStatus === 'removed' || m.membershipStatus === 'archived' || m.userStatus === 'archived') && !activeMembers.find(a=>a.userId===m.userId));
+
+  function memberRowHtml(m, isEx) {
+    const isSelf = m.userId === S.user?.id;
+    const isArchived = m.userStatus === 'archived';
+    const isRemoved = m.membershipStatus === 'removed' || m.membershipStatus === 'archived';
+    const displayN = memberDisplayName(m);
+    const nameStyle = isEx ? 'color:var(--text3)' : 'font-weight:500';
+    return `<tr style="${isEx?'opacity:.7':''}">
       <td><div style="display:flex;align-items:center;gap:8px">
-        <div class="avatar avatar-sm">${m.username[0].toUpperCase()}</div>
+        <div class="avatar avatar-sm" style="${isEx?'opacity:.5':''}">${(m.username||'?')[0].toUpperCase()}</div>
         <div>
-          <div style="font-weight:500">${m.username}</div>
-          ${m.userId===S.user?.id?'<span class="badge badge-accent" style="font-size:10px">You</span>':''}
+          <div style="${nameStyle}">${displayN}</div>
+          ${isSelf?'<span class="badge badge-accent" style="font-size:10px">You</span>':''}
+          ${isArchived?'<span class="badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);font-size:10px">Archived 💀</span>':isRemoved?'<span class="badge" style="background:var(--bg4);color:var(--text3);font-size:10px">Removed</span>':''}
         </div>
       </div></td>
-      ${isDir?`<td>${m.userId!==S.user?.id ? `
+      ${isDir?`<td>${!isSelf && !isEx ? `
+        <input type="text" value="${(m.displayName!==m.username?m.displayName||'':'').replace(/"/g,'&quot;')}" placeholder="${m.username}"
+          style="font-size:12px;padding:4px 8px;width:130px"
+          onblur="updateDisplayName('${m.userId}',this.value)"
+          onkeydown="if(event.key==='Enter')this.blur()">
+        ` : `<span style="font-size:12px;color:var(--text3)">${m.displayName!==m.username?m.displayName||'—':'—'}</span>`}
+      </td>`:''}
+      ${isDir?`<td>${!isSelf && !isEx ? `
         <input type="text" value="${(m.job_title||'').replace(/"/g,'&quot;')}" placeholder="e.g. Lead Artist"
           style="font-size:12px;padding:4px 8px;width:140px"
           onblur="updateMember('${m.userId}',{job_title:this.value})"
           onkeydown="if(event.key==='Enter')this.blur()">
         ` : `<span style="font-size:12px;color:var(--text3)">${m.job_title||'—'}</span>`}
       </td>`:''}
-      <td>${isDir && m.userId!==S.user?.id ? `
+      <td>${isDir && !isSelf && !isEx ? `
         <select style="font-size:12px;padding:4px 8px;width:160px" onchange="updateMember('${m.userId}','role',this.value)">
           <option value="pending" ${m.role==='pending'?'selected':''}>⏳ Pending</option>
           ${(S.project.roles||[]).map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${r.replace(/_/g,' ')}</option>`).join('')}
         </select>` : `<span class="badge badge-draft">${(m.role||'viewer').replace(/_/g,' ')}</span>`}
       </td>
-      <td>${isDir && m.userId!==S.user?.id ? `
+      <td>${isDir && !isSelf && !isEx ? `
         <select style="font-size:12px;padding:4px 8px;width:140px" onchange="updateMember('${m.userId}','department',this.value)">
           <option value="">None</option>
           ${(S.project.departments||[]).map(d=>`<option value="${d}" ${m.department===d?'selected':''}>${d}</option>`).join('')}
         </select>` : m.department||'—'}
       </td>
-      ${isDir?`<td>${m.userId!==S.user?.id ? buildTierDropdownHtml(m.userId, m.tiers) : renderTierPills(m.tiers)}</td>`:''}
-      ${isDir?`<td>${m.userId!==S.user?.id?`<button class="btn btn-xs btn-danger" onclick="removeMember('${m.userId}')">Remove</button>`:'—'}</td>`:''}`
-    ).join('')}
-    </tbody></table></div>`;
+      ${isDir?`<td>${!isSelf && !isEx ? buildTierDropdownHtml(m.userId, m.tiers) : renderTierPills(m.tiers)}</td>`:''}
+      ${isDir?`<td style="white-space:nowrap">${!isSelf && !isEx ? `
+        <button class="btn btn-xs btn-danger" style="margin-bottom:3px" onclick="removeFromProject('${m.userId}','${(m.displayName||m.username).replace(/'/g,'\\\'')}')" title="Remove from this project only">Remove</button>
+        <button class="btn btn-xs" style="border-color:var(--red-border);color:var(--red);margin-bottom:3px" onclick="archiveCompany('${m.userId}','${(m.displayName||m.username).replace(/'/g,'\\\'')}')" title="Archive company-wide">Archive</button>
+      ` : isEx ? `
+        ${isArchived ? `<button class="btn btn-xs btn-success" onclick="restoreCompany('${m.userId}')">Restore (Company)</button>` : `<button class="btn btn-xs btn-success" onclick="restoreToProject('${m.userId}')">Restore to Project</button>`}
+      ` : '—'}</td>`:''}
+    </tr>`;
+  }
+
+  const activeRows = activeMembers.map(m=>memberRowHtml(m,false)).join('');
+  const exRows = exMembers.map(m=>memberRowHtml(m,true)).join('');
+
+  document.getElementById('team-list').innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="tbl"><thead><tr>
+        <th>Member</th>
+        ${isDir?'<th>Display Name</th>':''}
+        ${isDir?'<th>Job Title</th>':''}
+        <th>Role(s)</th>
+        <th>Department</th>
+        ${isDir?'<th>Tiers</th>':''}
+        ${isDir?'<th>Actions</th>':''}
+      </tr></thead>
+      <tbody>${activeRows}</tbody></table>
+    </div>
+    ${exMembers.length ? `
+    <div class="card" style="margin-top:12px;padding:0;overflow:hidden">
+      <div style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+        <span style="font-size:13px;font-weight:600;color:var(--text3)">Ex-Members (${exMembers.length})</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:auto">▾ click to expand</span>
+      </div>
+      <div style="display:none">
+        <table class="tbl"><thead><tr>
+          <th>Member</th>
+          ${isDir?'<th>Display Name</th>':''}
+          ${isDir?'<th>Job Title</th>':''}
+          <th>Role(s)</th>
+          <th>Department</th>
+          ${isDir?'<th>Tiers</th>':''}
+          ${isDir?'<th>Actions</th>':''}
+        </tr></thead>
+        <tbody>${exRows}</tbody></table>
+      </div>
+    </div>` : ''}`;
 }
 
 // Permission categories
@@ -2301,6 +2364,33 @@ async function removeMember(userId) {
   await api('DELETE',`/api/projects/${S.project.id}/members/${userId}`);
   renderTeam();
 }
+async function removeFromProject(userId, name) {
+  if(!confirm(`Remove ${name} from this project? Their entries stay.`)) return;
+  await api('DELETE',`/api/projects/${S.project.id}/members/${userId}/remove`);
+  renderTeam();
+}
+async function archiveCompany(userId, name) {
+  if(!confirm(`Archive ${name} company-wide? They will lose access to everything.`)) return;
+  await api('POST',`/api/users/${userId}/archive`);
+  renderTeam();
+}
+async function restoreCompany(userId) {
+  if(!confirm('Restore this user company-wide? They will regain full access.')) return;
+  await api('POST',`/api/users/${userId}/restore`);
+  renderTeam();
+}
+async function restoreToProject(userId) {
+  if(!confirm('Restore this user to this project?')) return;
+  await api('POST',`/api/projects/${S.project.id}/members/${userId}/restore`);
+  renderTeam();
+}
+async function updateDisplayName(userId, value) {
+  await api('PUT',`/api/users/${userId}/display-name`,{displayName: value || null});
+  // Refresh team silently
+  const members = await api('GET',`/api/projects/${S.project.id}/members`);
+  window._teamMembers = members;
+  window._archivedUsers = new Set(members.filter(m=>m.userStatus==='archived').map(m=>m.userId));
+}
 async function regenerateCode() {
   const prefix = S.project.name.replace(/[^a-zA-Z]/g,'').toUpperCase().slice(0,4).padEnd(4,'X');
   const code = `${prefix}-${Math.floor(1000+Math.random()*9000)}`;
@@ -2412,6 +2502,8 @@ async function renderMyTasks() {
 
   const byStatus = {not_started:[], in_progress:[], in_review:[], done:[], blocked:[]};
   tasks.forEach(t=>{ if(byStatus[t.status]) byStatus[t.status].push(t); });
+  // Sort each bucket so needs_reassignment tasks appear first
+  Object.values(byStatus).forEach(arr => arr.sort((a,b) => (b.needs_reassignment?1:0) - (a.needs_reassignment?1:0)));
 
   const statusLabel = {not_started:'Not Started', in_progress:'In Progress', in_review:'In Review', done:'Done', blocked:'Blocked'};
   const statusColor = {not_started:'var(--text3)', in_progress:'var(--amber)', in_review:'var(--purple)', done:'var(--green)', blocked:'var(--red)'};
@@ -2420,10 +2512,11 @@ async function renderMyTasks() {
     <div class="card" style="margin-bottom:12px">
       <div class="card-title" style="color:${statusColor[status]}">${statusLabel[status]} (${tasks.length})</div>
       ${tasks.map(t=>`
-        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:6px;border:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:${t.needs_reassignment?'var(--amber-bg)':'var(--bg3)'};border-radius:var(--radius);margin-bottom:6px;border:1px solid ${t.needs_reassignment?'var(--amber-border)':'var(--border)'}">
           <div style="flex:1;cursor:pointer" onclick="openEntityView('${t.entityId}')">
             <div style="font-weight:600;font-size:13px">${t.entityName}</div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px">${t.stepName} <span style="color:var(--text3)">· ${t.dept||'no dept'}</span></div>
+            ${t.needs_reassignment?`<div style="font-size:11px;color:var(--amber);margin-top:3px;font-weight:600">⚠️ Needs Reassignment</div>`:''}
             ${t.dueDate?`<div style="font-size:11px;color:var(--amber);margin-top:2px">Due: ${t.dueDate}</div>`:''}
             ${t.note?`<div style="font-size:12px;color:var(--text3);margin-top:4px;font-style:italic">${t.note}</div>`:''}
           </div>
@@ -2474,11 +2567,14 @@ async function renderReviewQueue() {
     container.innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><h3>No tasks pending review</h3><p>Tasks submitted by your team will appear here</p></div>`;
     return;
   }
-  container.innerHTML = tasks.map(t=>`
-    <div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px">
+  // Sort tasks: needs_reassignment first
+  const sortedTasks = [...tasks].sort((a,b)=>(b.needs_reassignment?1:0)-(a.needs_reassignment?1:0));
+  container.innerHTML = sortedTasks.map(t=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:14px;background:${t.needs_reassignment?'var(--amber-bg)':'var(--bg2)'};border:1px solid ${t.needs_reassignment?'var(--amber-border)':'var(--border)'};border-radius:var(--radius-lg);margin-bottom:10px">
       <div style="flex:1;cursor:pointer" onclick="openEntityView('${t.entityId}')">
         <div style="font-weight:600;font-size:14px">${t.entityName} <span style="font-size:12px;color:var(--text3)">→ ${t.stepName}</span></div>
-        <div style="font-size:12px;color:var(--text3);margin-top:3px">Submitted by <strong style="color:var(--text2)">${t.assigneeName}</strong> · ${t.dept||'no dept'}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">Submitted by <strong style="color:var(--text2)">${displayName(t.assigneeId, t.assigneeName)}</strong> · ${t.dept||'no dept'}</div>
+        ${t.needs_reassignment?`<div style="font-size:11px;color:var(--amber);margin-top:3px;font-weight:600">⚠️ Needs Reassignment</div>`:''}
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm btn-success" onclick="reviewTask('${t.id}','done')">✓ Approve</button>
@@ -2574,7 +2670,7 @@ async function renderReports() {
         <div style="max-height:300px;overflow-y:auto">
           ${data.weekActivity.length ? data.weekActivity.map(a=>`
             <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
-              <span style="color:var(--text2);font-weight:500">${a.username}</span>
+              <span style="color:var(--text2);font-weight:500">${displayName(a.user_id, a.username)}</span>
               <span style="color:var(--text3)"> · ${a.detail}</span>
               <div style="color:var(--text3);font-size:10px;margin-top:2px">${ago(a.createdAt)}</div>
             </div>`).join('') : '<p style="color:var(--text3);font-size:13px">No activity this week</p>'}

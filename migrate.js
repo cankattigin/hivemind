@@ -17,6 +17,10 @@ const migrations = [
   "ALTER TABLE entity_types ADD COLUMN IF NOT EXISTS detail_blocks jsonb default '[]'",
   "ALTER TABLE memberships ADD COLUMN IF NOT EXISTS tiers jsonb default '[\"member\"]'",
   "ALTER TABLE memberships ADD COLUMN IF NOT EXISTS job_title text default ''",
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS status text default 'active'",
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name text",
+  "ALTER TABLE memberships ADD COLUMN IF NOT EXISTS status text default 'active'",
+  "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS needs_reassignment boolean default false",
 ];
 
 async function migrate() {
