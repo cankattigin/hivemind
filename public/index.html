@@ -336,7 +336,7 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
         <button class="nav-item" data-page="entities" onclick="goPage('entities')"><span class="ni">🗃</span> All Elements <span class="nc" id="nc-all">0</span></button>
       </div>
       <div class="nav-group">
-        <div class="nav-group-title">Classes <button onclick="openCreateType()">＋</button></div>
+        <div class="nav-group-title">Classes <button id="btn-sb-new-class" onclick="openCreateType()" style="display:none">＋</button></div>
         <div id="sb-types"></div>
       </div>
       <div class="nav-group">
@@ -380,7 +380,7 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
       <div id="page-entities" class="page" style="display:none">
         <div class="sec-hd">
           <div class="sec-title">All Elements</div>
-          <button class="btn btn-primary" onclick="openCreateEntity()">+ New Element</button>
+          <button id="btn-new-element" class="btn btn-primary" onclick="openCreateEntity()">+ New Element</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">
           <input id="ent-search" placeholder="🔍 Search by name…" style="width:190px" oninput="renderEntitiesTable()">
@@ -426,7 +426,7 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
       <div id="page-type-entities" class="page" style="display:none">
         <div class="sec-hd">
           <div class="sec-title" id="type-ent-title">Elements</div>
-          <button class="btn btn-primary" onclick="openCreateEntity(S.currentTypeId)">+ New Element</button>
+          <button id="btn-new-type-element" class="btn btn-primary" onclick="openCreateEntity(S.currentTypeId)">+ New Element</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">
           <input id="te-search" placeholder="🔍 Search by name…" style="width:190px" oninput="renderTypeEntities()">
@@ -471,7 +471,7 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
       <div id="page-schema" class="page" style="display:none">
         <div class="sec-hd">
           <div class="sec-title">Schema Studio</div>
-          <button class="btn btn-primary" onclick="openCreateType()">+ New Class</button>
+          <button id="btn-new-class" class="btn btn-primary" onclick="openCreateType()">+ New Class</button>
         </div>
         <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Define what exists in your game. Classes are blueprints — elements are the actual things.</p>
         <div id="schema-list"></div>
@@ -588,7 +588,30 @@ function getMyRoles() {
 
 function isDirector() { return S.user?.accountType === 'director' || getMyRoles().includes('director'); }
 
-// Check if my roles have a specific permission
+// ─── TIER HELPERS ─────────────────────────────────────
+function myTiers() {
+  if (S.user?.accountType === 'director') return ['director'];
+  return S.membership?.tiers || ['member'];
+}
+function isDesigner() {
+  return isDirector() || myTiers().includes('designer');
+}
+function isLead() {
+  return isDirector() || myTiers().includes('lead') || myTiers().includes('manager');
+}
+function isManager() {
+  return isDirector() || myTiers().includes('manager');
+}
+function canEditContent() {
+  return isDirector() || myTiers().includes('designer');
+}
+function canAssignInDept(dept) {
+  if (isDirector() || isManager()) return true;
+  const t = myTiers();
+  return t.includes('lead') && S.membership?.department === dept;
+}
+
+// Check if my roles have a specific permission (legacy — kept for pipeline/schema checks)
 function hasPerm(category, col) {
   if (isDirector()) return true;
   const roles = getMyRoles();
@@ -600,15 +623,11 @@ function hasPerm(category, col) {
 }
 
 function isLeadOrDirector() {
-  if (isDirector()) return true;
-  const roles = getMyRoles();
-  // Check if any role has assign permission (leads can assign)
-  if (hasPerm('tasks','assign')) return true;
-  return roles.some(r => r.includes('lead') || r === 'project_manager');
+  return isDirector() || isLead();
 }
 
 function canEditDesign() {
-  return hasPerm('entities','edit') || hasPerm('entities','create');
+  return canEditContent();
 }
 
 function canUpdatePipelineStep(stepDept) {
@@ -958,7 +977,7 @@ async function enterProject(projectId) {
   document.getElementById('sb-project-name').textContent = S.project.name;
   document.getElementById('sb-avatar').textContent = S.user.username[0].toUpperCase();
   document.getElementById('sb-username').textContent = S.user.username;
-  document.getElementById('sb-role').textContent = S.membership?.role || S.user.accountType;
+  document.getElementById('sb-role').textContent = S.membership?.job_title || S.membership?.role || S.user.accountType;
   await loadProjectData();
   // Non-directors land on My Tasks, directors on Dashboard
   if (S.user?.accountType === 'director' || isLeadOrDirector()) {
@@ -979,6 +998,7 @@ async function loadProjectData() {
   S.types = S.types.map(t => ({...t, parentId: t.parent_id || t.parentId || null}));
   S.entities = S.entities.map(e => ({...e, typeId: e.type_id || e.typeId}));
   renderSidebarTypes();
+  applyPermissionUI();
   document.getElementById('nc-all').textContent = S.entities.length;
   // Load task counts
   try {
@@ -988,6 +1008,18 @@ async function loadProjectData() {
     const reviewQ = await api('GET',`/api/projects/${S.project.id}/review-queue`);
     document.getElementById('nc-review').textContent = reviewQ.length||'';
   } catch(e) {}
+}
+
+// ─── APPLY PERMISSION UI ────────────────────────────────
+function applyPermissionUI() {
+  const canCreate = canEditContent();
+  const elems = [
+    document.getElementById('btn-new-element'),
+    document.getElementById('btn-new-type-element'),
+    document.getElementById('btn-new-class'),
+    document.getElementById('btn-sb-new-class'),
+  ];
+  elems.forEach(el => { if (el) el.style.display = canCreate ? '' : 'none'; });
 }
 
 // ═══ NAVIGATION ═════════════════════════════════════════
@@ -1002,6 +1034,7 @@ function goPage(page, typeId) {
   });
   const titles={dashboard:'Dashboard',entities:'All Elements',schema:'Schema Studio',tags:'Tags & Components',pipelines:'Pipeline Templates',team:'Team'};
   document.getElementById('topbar-title').textContent = titles[page]||'';
+  applyPermissionUI();
 
   if (page==='dashboard') { show('page-dashboard'); renderDashboard(); }
   else if (page==='entities') { show('page-entities'); populateTypeFilter(); renderEntitiesTable(); }
@@ -1201,7 +1234,7 @@ async function openEntityView(entityId) {
       ${Object.entries(envLabels).map(([k,v])=>`<option value="${k}" ${(entity.environment||'not_in_engine')===k?'selected':''}>${v}</option>`).join('')}
     </select>
     ${isLeadOrDirector()?`<button class="btn btn-sm" onclick="openAssignModal('${entityId}')">📋 Assign</button>`:''}
-    ${canEditDesign()?`<button class="btn btn-sm" onclick="openEditEntity('${entityId}')">✏️ Edit</button>`:''}
+    ${canEditContent()?`<button class="btn btn-sm" onclick="openEditEntity('${entityId}')">✏️ Edit</button>`:''}
     <button class="btn btn-sm" title="Duplicate element" onclick="duplicateEntity('${entityId}')">📋 Duplicate</button>
     ${isDirector()?`<button class="btn btn-sm btn-danger" onclick="deleteEntity('${entityId}')">🗑</button>`:''}
   `;
@@ -1710,8 +1743,8 @@ function renderSchema() {
           <div class="chips">${(type.fields||[]).map(f=>`<span class="badge badge-draft" style="font-size:10px" title="${f.description||''}">${f.name} <span style="opacity:.5">${f.type}</span></span>`).join('')||'<span style="font-size:11px;color:var(--text3)">No fields defined</span>'}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          ${canEditDesign()?`<button class="btn btn-sm" onclick="openCreateType('${type.id}')">+ Subclass</button>`:''}
-          ${canEditDesign()?`<button class="btn btn-sm" onclick="openEditType('${type.id}')">✏️</button>`:''}
+          ${canEditContent()?`<button class="btn btn-sm" onclick="openCreateType('${type.id}')">+ Subclass</button>`:''}
+          ${canEditContent()?`<button class="btn btn-sm" onclick="openEditType('${type.id}')">✏️</button>`:''}
           ${isDirector()?`<button class="btn btn-sm btn-danger" onclick="deleteType('${type.id}')">🗑</button>`:''}
         </div>
       </div>
@@ -2021,6 +2054,69 @@ function applyPipelineTemplate(templateId) {
 }
 
 // ═══ TEAM ═══════════════════════════════════════════════
+const TIER_OPTIONS = ['member','designer','lead','manager'];
+const TIER_COLORS = { member:'var(--text3)', designer:'var(--accent2)', lead:'var(--amber)', manager:'var(--green)' };
+
+function renderTierPills(tiers) {
+  const t = Array.isArray(tiers) && tiers.length ? tiers : ['member'];
+  return t.map(tier => `<span class="badge" style="background:var(--bg4);color:${TIER_COLORS[tier]||'var(--text2)'};border:1px solid var(--border2);font-size:10px">${tier}</span>`).join(' ');
+}
+
+function buildTierDropdownHtml(userId, currentTiers) {
+  const tiers = Array.isArray(currentTiers) && currentTiers.length ? currentTiers : ['member'];
+  const opts = TIER_OPTIONS.map(t =>
+    `<label style="display:flex;align-items:center;gap:6px;padding:4px 8px;cursor:pointer;font-size:12px;border-radius:4px" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" ${tiers.includes(t)?'checked':''} style="width:auto;accent-color:var(--accent);cursor:pointer"
+        onchange="toggleMemberTier('${userId}',this)">
+      <span style="color:${TIER_COLORS[t]||'var(--text2)'}">${t}</span>
+    </label>`
+  ).join('');
+  return `<div style="position:relative;display:inline-block">
+    <div style="display:flex;flex-wrap:wrap;gap:3px;cursor:pointer;min-width:90px" onclick="event.stopPropagation();toggleTierDropdown('td-${userId}')">
+      ${renderTierPills(tiers)}
+      <span style="font-size:10px;color:var(--text3);align-self:center">▾</span>
+    </div>
+    <div id="td-${userId}" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+      ${opts}
+    </div>
+  </div>`;
+}
+
+function toggleTierDropdown(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  // close all others first
+  document.querySelectorAll('[id^="td-"]').forEach(d => { d.style.display = 'none'; });
+  if (!isOpen) el.style.display = 'block';
+}
+
+// Close tier dropdowns when clicking elsewhere
+document.addEventListener('click', () => {
+  document.querySelectorAll('[id^="td-"]').forEach(d => { d.style.display = 'none'; });
+});
+
+async function toggleMemberTier(userId, checkbox) {
+  // Find the member and update tiers
+  const member = window._teamMembers?.find(m => m.userId === userId);
+  if (!member) return;
+  const tierName = checkbox.closest('label').querySelector('span').textContent.trim();
+  let tiers = Array.isArray(member.tiers) && member.tiers.length ? [...member.tiers] : ['member'];
+  if (checkbox.checked) {
+    if (!tiers.includes(tierName)) tiers.push(tierName);
+  } else {
+    tiers = tiers.filter(t => t !== tierName);
+    if (tiers.length === 0) tiers = ['member']; // always keep at least member
+  }
+  member.tiers = tiers;
+  await updateMember(userId, { tiers });
+  // Refresh the pills display
+  const pillsDiv = checkbox.closest('[id^="td-"]')?.previousElementSibling;
+  if (pillsDiv) {
+    pillsDiv.innerHTML = renderTierPills(tiers) + '<span style="font-size:10px;color:var(--text3);align-self:center">▾</span>';
+  }
+}
+
 async function renderTeam() {
   const isDir = S.project?.ownerId === S.user?.id;
   document.getElementById('team-actions').innerHTML = isDir ? `
@@ -2031,14 +2127,31 @@ async function renderTeam() {
   document.getElementById('invite-section').style.display = isDir ? 'block' : 'none';
   if (isDir) document.getElementById('invite-code-display').textContent = S.project.inviteCode;
   const members = await api('GET',`/api/projects/${S.project.id}/members`);
+  window._teamMembers = members;
   document.getElementById('team-list').innerHTML = `<div class="card" style="padding:0;overflow:hidden">
-    <table class="tbl"><thead><tr><th>Member</th><th>Role(s)</th><th>Department</th>${isDir?'<th></th>':''}</tr></thead>
+    <table class="tbl"><thead><tr>
+      <th>Member</th>
+      ${isDir?'<th>Job Title</th>':''}
+      <th>Role(s)</th>
+      <th>Department</th>
+      ${isDir?'<th>Tiers</th>':''}
+      ${isDir?'<th></th>':''}
+    </tr></thead>
     <tbody>${members.map(m=>`<tr>
       <td><div style="display:flex;align-items:center;gap:8px">
         <div class="avatar avatar-sm">${m.username[0].toUpperCase()}</div>
-        <span style="font-weight:500">${m.username}</span>
-        ${m.userId===S.user?.id?'<span class="badge badge-accent" style="font-size:10px">You</span>':''}
+        <div>
+          <div style="font-weight:500">${m.username}</div>
+          ${m.userId===S.user?.id?'<span class="badge badge-accent" style="font-size:10px">You</span>':''}
+        </div>
       </div></td>
+      ${isDir?`<td>${m.userId!==S.user?.id ? `
+        <input type="text" value="${(m.job_title||'').replace(/"/g,'&quot;')}" placeholder="e.g. Lead Artist"
+          style="font-size:12px;padding:4px 8px;width:140px"
+          onblur="updateMember('${m.userId}',{job_title:this.value})"
+          onkeydown="if(event.key==='Enter')this.blur()">
+        ` : `<span style="font-size:12px;color:var(--text3)">${m.job_title||'—'}</span>`}
+      </td>`:''}
       <td>${isDir && m.userId!==S.user?.id ? `
         <select style="font-size:12px;padding:4px 8px;width:160px" onchange="updateMember('${m.userId}','role',this.value)">
           <option value="pending" ${m.role==='pending'?'selected':''}>⏳ Pending</option>
@@ -2051,6 +2164,7 @@ async function renderTeam() {
           ${(S.project.departments||[]).map(d=>`<option value="${d}" ${m.department===d?'selected':''}>${d}</option>`).join('')}
         </select>` : m.department||'—'}
       </td>
+      ${isDir?`<td>${m.userId!==S.user?.id ? buildTierDropdownHtml(m.userId, m.tiers) : renderTierPills(m.tiers)}</td>`:''}
       ${isDir?`<td>${m.userId!==S.user?.id?`<button class="btn btn-xs btn-danger" onclick="removeMember('${m.userId}')">Remove</button>`:'—'}</td>`:''}`
     ).join('')}
     </tbody></table></div>`;
@@ -2170,9 +2284,16 @@ async function saveDepts() {
   renderTeam();
 }
 
-async function updateMember(userId, field, value) {
-  const body = {[field]: value};
-  if (field === 'role') body.roles = [value];
+async function updateMember(userId, updates) {
+  // Support both updateMember(id, {key:val}) and legacy updateMember(id, 'field', value)
+  let body;
+  if (typeof updates === 'string') {
+    const field = updates, value = arguments[2];
+    body = {[field]: value};
+    if (field === 'role') body.roles = [value];
+  } else {
+    body = updates;
+  }
   await api('PUT',`/api/projects/${S.project.id}/members/${userId}`,body);
 }
 async function removeMember(userId) {
@@ -2237,16 +2358,17 @@ async function openAssignModal(entityId) {
     <div id="assign-steps">
       ${type.pipeline.map(step => {
         const task = tasks.find(t=>t.entityId===entityId&&t.stepId===step.id);
-        return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:var(--radius);margin-bottom:6px;border:1px solid var(--border)">
+        const canAssign = canAssignInDept(step.dept||'');
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:var(--radius);margin-bottom:6px;border:1px solid var(--border);opacity:${canAssign?'1':'0.6'}">
           <div style="flex:1">
             <div style="font-weight:500;font-size:13px">${step.name}</div>
-            <div style="font-size:11px;color:var(--text3)">${step.dept||'No dept'}</div>
+            <div style="font-size:11px;color:var(--text3)">${step.dept||'No dept'}${!canAssign?' <span style="color:var(--red)">· no permission</span>':''}</div>
           </div>
-          <select id="assign-${step.id}" style="width:160px;font-size:12px">
+          <select id="assign-${step.id}" style="width:160px;font-size:12px" ${!canAssign?'disabled':''}>
             <option value="">Unassigned</option>
             ${members.filter(m=>m.role!=='pending').map(m=>`<option value="${m.userId}" ${task?.assigneeId===m.userId?'selected':''}>${m.username}</option>`).join('')}
           </select>
-          <input type="date" id="due-${step.id}" value="${task?.dueDate||''}" style="width:140px;font-size:12px">
+          <input type="date" id="due-${step.id}" value="${task?.dueDate||''}" style="width:140px;font-size:12px" ${!canAssign?'disabled':''}>
           ${task?`<span class="badge badge-${task.status==='done'?'done':task.status==='in_review'?'review':task.status==='in_progress'?'in-progress':'draft'}">${task.status.replace('_',' ')}</span>`:'<span class="badge badge-draft">not assigned</span>'}
         </div>`;
       }).join('')}
@@ -2599,8 +2721,7 @@ window._excalidrawLoading = false;
 window._excalidrawCallbacks = [];
 
 function canEditDetailBlocks() {
-  if (isDirector()) return true;
-  return S.membership?.roles?.some(r => r.includes('designer') || r === 'director') || false;
+  return canEditContent();
 }
 
 function loadExcalidraw(cb) {

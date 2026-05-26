@@ -15,6 +15,8 @@ const migrations = [
   "ALTER TABLE projects ADD COLUMN IF NOT EXISTS roles jsonb default '[]'",
   "ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id uuid",
   "ALTER TABLE entity_types ADD COLUMN IF NOT EXISTS detail_blocks jsonb default '[]'",
+  "ALTER TABLE memberships ADD COLUMN IF NOT EXISTS tiers jsonb default '[\"member\"]'",
+  "ALTER TABLE memberships ADD COLUMN IF NOT EXISTS job_title text default ''",
 ];
 
 async function migrate() {

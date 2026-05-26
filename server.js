@@ -49,11 +49,45 @@ function getUserRolesFromMembership(membership, user) {
   return Array.isArray(membership.roles) ? membership.roles : [membership.role || 'viewer'];
 }
 
+function getUserTiersFromMembership(membership, user) {
+  if (user?.account_type === 'director') return ['director'];
+  if (!membership) return ['member'];
+  const t = membership.tiers;
+  return Array.isArray(t) && t.length > 0 ? t : ['member'];
+}
+
 async function getUserRoles(userId, projectId) {
   const user = await getUser(userId);
   if (user?.account_type === 'director') return ['director'];
   const m = await getMembership(userId, projectId);
   return getUserRolesFromMembership(m, user);
+}
+
+async function getUserMembership(userId, projectId) {
+  const user = await getUser(userId);
+  const m = await getMembership(userId, projectId);
+  return { user, membership: m, tiers: getUserTiersFromMembership(m, user) };
+}
+
+// ─── PERMISSION HELPERS ───────────────────────────────
+function canAssignTasksToDept(tiers, userDept, targetDept, accountType) {
+  if (accountType === 'director') return true;
+  if (tiers.includes('manager')) return true;
+  if (tiers.includes('lead') && userDept === targetDept) return true;
+  return false;
+}
+
+function canEditContent(tiers, accountType) {
+  if (accountType === 'director') return true;
+  if (tiers.includes('designer')) return true;
+  return false;
+}
+
+function canApproveReviews(tiers, userDept, taskDept, accountType) {
+  if (accountType === 'director') return true;
+  if (tiers.includes('manager')) return true;
+  if (tiers.includes('lead') && userDept === taskDept) return true;
+  return false;
 }
 
 function isDirectorOrLead(roles) {
@@ -205,7 +239,14 @@ app.get('/api/projects/:id/members', auth, async (req, res) => {
   const { data: users } = await supabase.from('users').select('id, username, account_type').in('id', userIds);
   res.json(memberships.map(m => {
     const user = users?.find(u => u.id === m.user_id);
-    return { ...m, userId: m.user_id, username: user?.username || 'Unknown', accountType: user?.account_type };
+    return {
+      ...m,
+      userId: m.user_id,
+      username: user?.username || 'Unknown',
+      accountType: user?.account_type,
+      tiers: Array.isArray(m.tiers) && m.tiers.length > 0 ? m.tiers : ['member'],
+      job_title: m.job_title || ''
+    };
   }));
 });
 
@@ -214,6 +255,8 @@ app.put('/api/projects/:id/members/:userId', auth, async (req, res) => {
   if (req.body.role) { updates.role = req.body.role; updates.roles = [req.body.role]; }
   if (req.body.roles) updates.roles = req.body.roles;
   if (req.body.department !== undefined) updates.department = req.body.department;
+  if (req.body.tiers) updates.tiers = req.body.tiers;
+  if (req.body.job_title !== undefined) updates.job_title = req.body.job_title;
   const { data, error } = await supabase.from('memberships').update(updates).eq('user_id', req.params.userId).eq('project_id', req.params.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -457,10 +500,16 @@ app.get('/api/projects/:pid/tasks', auth, async (req, res) => {
 });
 
 app.post('/api/projects/:pid/tasks', auth, async (req, res) => {
-  const roles = await getUserRoles(req.session.userId, req.params.pid);
-  if (!isDirectorOrLead(roles)) return res.status(403).json({ error: 'Only directors and leads can assign tasks' });
+  const { user, membership, tiers } = await getUserMembership(req.session.userId, req.params.pid);
+  const isSelfAssign = req.body.assigneeId === req.session.userId;
+  const taskDept = req.body.dept || '';
+  const requesterDept = membership?.department || '';
+
+  if (!isSelfAssign && !canAssignTasksToDept(tiers, requesterDept, taskDept, user?.account_type)) {
+    return res.status(403).json({ error: 'You do not have permission to assign tasks to this department' });
+  }
+
   await supabase.from('tasks').delete().eq('entity_id', req.body.entityId).eq('step_id', req.body.stepId).eq('project_id', req.params.pid);
-  const user = await getUser(req.session.userId);
   const task = { id: uuidv4(), project_id: req.params.pid, entity_id: req.body.entityId, step_id: req.body.stepId, step_name: req.body.stepName, dept: req.body.dept || '', assignee_id: req.body.assigneeId, due_date: req.body.dueDate || null, status: 'not_started', assigned_by: req.session.userId, assigned_by_name: user?.username || '', note: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
   const { data, error } = await supabase.from('tasks').insert(task).select().single();
   if (error) return res.status(500).json({ error: error.message });
@@ -479,16 +528,19 @@ app.put('/api/projects/:pid/tasks/:id', auth, async (req, res) => {
 });
 
 app.get('/api/projects/:pid/review-queue', auth, async (req, res) => {
-  const roles = await getUserRoles(req.session.userId, req.params.pid);
+  const { user, membership, tiers } = await getUserMembership(req.session.userId, req.params.pid);
   let query = supabase.from('tasks').select('*').eq('project_id', req.params.pid).eq('status', 'in_review');
-  if (!roles.includes('director')) {
-    const depts = [];
-    if (roles.some(r => r.includes('art'))) depts.push('art');
-    if (roles.some(r => r.includes('design'))) depts.push('design');
-    if (roles.some(r => r.includes('program') || r.includes('dev'))) depts.push('programming');
-    if (roles.some(r => r.includes('qa'))) depts.push('qa');
-    if (roles.some(r => r.includes('audio'))) depts.push('audio');
-    if (depts.length) query = query.in('dept', depts);
+  if (user?.account_type !== 'director') {
+    if (tiers.includes('manager')) {
+      // managers see all depts — no filter needed
+    } else if (tiers.includes('lead')) {
+      // leads see only their own department
+      const dept = membership?.department || '';
+      if (dept) query = query.eq('dept', dept);
+    } else {
+      // regular members only see tasks assigned to them
+      query = query.eq('assignee_id', req.session.userId);
+    }
   }
   const { data: tasks } = await query;
   const entityIds = [...new Set((tasks || []).map(t => t.entity_id))];
