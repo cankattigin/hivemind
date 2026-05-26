@@ -767,5 +767,12 @@ app.post('/api/upload/icon', auth, (req, res) => {
   });
 });
 
+app.get('/api/config', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY
+  });
+});
+
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.listen(PORT, () => console.log(`\n🧠 Hivemind v0.4 (Supabase) → http://localhost:${PORT}\n`));

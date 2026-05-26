@@ -268,6 +268,7 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
 </style>
 </head>
 <body>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>(function(){var t=localStorage.getItem('hivemind-theme')||'dark';document.body.classList.add('theme-'+t);})()</script>
 
 <div id="auth-screen">
@@ -367,6 +368,10 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
     <div id="topbar">
       <div id="topbar-title">Dashboard</div>
       <div id="topbar-actions"></div>
+      <div id="rt-indicator" title="Realtime" style="display:none;align-items:center;gap:5px;font-size:11px;color:var(--text3);margin-right:4px">
+        <span id="rt-dot" style="width:7px;height:7px;border-radius:50%;background:#6b7280;display:inline-block;flex-shrink:0"></span>
+        <span id="rt-label">Live</span>
+      </div>
       <div id="theme-toggle-btn" onclick="cycleTheme()"><span id="theme-icon">🌙</span><span id="theme-label">Dark</span></div>
     </div>
     <div id="content">
@@ -573,6 +578,131 @@ const S = {
   currentPage:'dashboard', currentTypeId:null, currentEntityId:null
 };
 
+// ═══ REALTIME ════════════════════════════════════════════
+let _rtClient = null;
+let _rtChannel = null;
+
+function mapEntity(raw) {
+  return {
+    id: raw.id,
+    projectId: raw.project_id || raw.projectId,
+    name: raw.name,
+    typeId: raw.type_id || raw.typeId,
+    fields: raw.fields || {},
+    tags: raw.tags || [],
+    nature: raw.nature || null,
+    status: raw.status || 'draft',
+    environment: raw.environment || 'not_in_engine',
+    pipeline: raw.pipeline || {},
+    pipelineSteps: raw.pipeline_steps || raw.pipelineSteps || [],
+    createdAt: raw.created_at || raw.createdAt,
+    updatedAt: raw.updated_at || raw.updatedAt,
+    createdBy: raw.created_by || raw.createdBy,
+    ownedBy: raw.owned_by || raw.ownedBy,
+    iconUrl: raw.icon_url || raw.iconUrl || null
+  };
+}
+
+function setRtStatus(connected) {
+  const dot = document.getElementById('rt-dot');
+  const lbl = document.getElementById('rt-label');
+  const ind = document.getElementById('rt-indicator');
+  if (!dot) return;
+  if (connected) {
+    dot.style.background = '#10b981';
+    if (lbl) lbl.textContent = 'Live';
+    if (ind) ind.title = 'Realtime connected';
+  } else {
+    dot.style.background = '#6b7280';
+    if (lbl) lbl.textContent = 'Live';
+    if (ind) ind.title = 'Realtime disconnected';
+  }
+}
+
+async function startRealtime(projectId) {
+  stopRealtime();
+  try {
+    const config = await api('GET', '/api/config');
+    _rtClient = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+    _rtChannel = _rtClient
+      .channel('project-' + projectId)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'entities',
+        filter: 'project_id=eq.' + projectId
+      }, function(payload) {
+        if (payload.eventType === 'INSERT') {
+          const exists = S.entities.find(e => e.id === payload.new.id);
+          if (!exists) {
+            S.entities.unshift(mapEntity(payload.new));
+            renderSidebarTypes();
+            if (S.currentPage === 'entities') renderEntitiesTable();
+            else if (S.currentPage === 'type-entities') renderTypeEntities();
+            else if (S.currentPage === 'dashboard') renderDashboard();
+            document.getElementById('nc-all').textContent = S.entities.length;
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const idx = S.entities.findIndex(e => e.id === payload.new.id);
+          const updated = mapEntity(payload.new);
+          if (idx > -1) {
+            S.entities[idx] = updated;
+          } else {
+            S.entities.unshift(updated);
+          }
+          renderSidebarTypes();
+          if (S.currentPage === 'entities') renderEntitiesTable();
+          else if (S.currentPage === 'type-entities') renderTypeEntities();
+          else if (S.currentPage === 'dashboard') renderDashboard();
+          if (S.currentEntityId === payload.new.id) openEntityView(payload.new.id);
+        } else if (payload.eventType === 'DELETE') {
+          S.entities = S.entities.filter(e => e.id !== payload.old.id);
+          renderSidebarTypes();
+          if (S.currentPage === 'entities') renderEntitiesTable();
+          else if (S.currentPage === 'type-entities') renderTypeEntities();
+          else if (S.currentPage === 'dashboard') renderDashboard();
+          document.getElementById('nc-all').textContent = S.entities.length;
+          if (S.currentEntityId === payload.old.id) {
+            S.currentEntityId = null;
+            document.getElementById('entity-view').classList.remove('on');
+          }
+        }
+      })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'tasks',
+        filter: 'project_id=eq.' + projectId
+      }, function(payload) {
+        if (S.currentPage === 'my-tasks') renderMyTasks();
+        else if (S.currentPage === 'review') renderReviewQueue();
+        try {
+          api('GET',`/api/projects/${S.project.id}/my-tasks`).then(myTasks => {
+            const active = myTasks.filter(t=>t.status!=='done').length;
+            document.getElementById('nc-tasks').textContent = active||'';
+          });
+          api('GET',`/api/projects/${S.project.id}/review-queue`).then(reviewQ => {
+            document.getElementById('nc-review').textContent = reviewQ.length||'';
+          });
+        } catch(e) {}
+      })
+      .subscribe(function(status) {
+        const ind = document.getElementById('rt-indicator');
+        if (ind) ind.style.display = 'flex';
+        setRtStatus(status === 'SUBSCRIBED');
+      });
+  } catch(e) {
+    console.warn('Realtime init failed:', e);
+  }
+}
+
+function stopRealtime() {
+  if (_rtChannel && _rtClient) {
+    _rtClient.removeChannel(_rtChannel).catch(()=>{});
+  }
+  _rtChannel = null;
+  _rtClient = null;
+  const ind = document.getElementById('rt-indicator');
+  if (ind) ind.style.display = 'none';
+  setRtStatus(false);
+}
+
 // ═══ PERMISSIONS ════════════════════════════════════════
 function getMyRoles() {
   if (S.user?.accountType === 'director') return ['director'];
@@ -722,11 +852,12 @@ async function doRegister() {
   if (res.error) { document.getElementById('r-err').textContent=res.error; return; }
   S.user=res; afterAuth();
 }
-async function doLogout() { await api('POST','/api/auth/logout'); location.reload(); }
+async function doLogout() { stopRealtime(); await api('POST','/api/auth/logout'); location.reload(); }
 async function afterAuth() { document.getElementById('auth-screen').style.display='none'; showHub(); }
 
 // ═══ HUB ════════════════════════════════════════════════
 async function showHub() {
+  stopRealtime();
   document.getElementById('shell').style.display='none';
   document.getElementById('hub-screen').style.display='flex';
   document.getElementById('hub-welcome').textContent = `Welcome back, ${S.user?.username}`;
@@ -983,6 +1114,8 @@ async function enterProject(projectId) {
   document.getElementById('sb-username').textContent = S.user.username;
   document.getElementById('sb-role').textContent = S.membership?.job_title || S.membership?.role || S.user.accountType;
   await loadProjectData();
+  // Start realtime subscription for this project
+  startRealtime(projectId);
   // Non-directors land on My Tasks, directors on Dashboard
   if (S.user?.accountType === 'director' || isLeadOrDirector()) {
     goPage('dashboard');
