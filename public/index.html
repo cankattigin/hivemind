@@ -3074,6 +3074,9 @@ function renderDbBlock(typeId, b, i, total, canEdit) {
     html += '<textarea class="db-richtext-area" placeholder="Write something..." '+(canE?'onblur="saveDbRichText(\''+typeId+'\',\''+b.id+'\',this.value)"':'readonly')+'>'+escHtml(b.content||'')+'</textarea>';
   } else if (b.type === 'whiteboard') {
     html += '<div class="db-wb-wrap" id="dbwb-wrap-'+b.id+'">';
+    html += '<div style="display:flex;align-items:center;justify-content:flex-end;height:18px;margin-bottom:3px">';
+    html += '<span id="dbwb-status-'+b.id+'" style="font-size:11px;color:var(--text3);opacity:0;transition:opacity 0.4s"></span>';
+    html += '</div>';
     html += '<div class="db-wb-container" id="dbwb-'+b.id+'" style="height:'+(b.height||1000)+'px">';
     html += '<div class="db-wb-loading" id="dbwb-loading-'+b.id+'"><div class="db-spinner"></div><span>Loading Excalidraw…</span></div>';
     html += '</div>';
@@ -3231,23 +3234,63 @@ function mountWhiteboard(typeId, block, idx) {
     if (window._excalidrawRoots[block.id]) {
       try { ReactDOM.unmountComponentAtNode(window._excalidrawRoots[block.id]); } catch(e) {}
     }
+    // Parse saved content — only elements + minimal appState are stored
     let parsedElements = [], parsedAppState = {};
     if (block.content) {
-      try { const s = JSON.parse(block.content); parsedElements = s.elements||[]; parsedAppState = s.appState||{}; } catch(e) {}
+      try {
+        const s = JSON.parse(block.content);
+        parsedElements = Array.isArray(s.elements) ? s.elements : (Array.isArray(s) ? s : []);
+        parsedAppState = (s && typeof s.appState === 'object' && !Array.isArray(s.appState)) ? s.appState : {};
+      } catch(e) { console.warn('[Whiteboard] Could not parse saved content for block', block.id, e); }
     }
+
     const canE = canEditDetailBlocks();
     let debounceTimer = null;
+
+    // Per-whiteboard save status helper
+    const setWbStatus = (msg) => {
+      const el = document.getElementById('dbwb-status-'+block.id);
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = msg === 'Saved ✓' ? 'var(--green)' : msg.startsWith('Save failed') ? 'var(--red)' : 'var(--text3)';
+      el.style.opacity = '1';
+      if (msg === 'Saved ✓') { setTimeout(() => { if (el) el.style.opacity = '0'; }, 2500); }
+    };
+
     const onChange = (elements, appState) => {
       if (!canE) return;
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        const blocks = getDetailBlocks(typeId);
-        const b = blocks.find(b => b.id === block.id);
-        if (b) { b.content = JSON.stringify({ elements, appState }); saveDetailBlocks(typeId, blocks); }
+      setWbStatus('Saving…');
+      debounceTimer = setTimeout(async () => {
+        try {
+          // Serialize only the plain elements array + a minimal, JSON-safe appState subset
+          const safeAppState = {
+            viewBackgroundColor: appState.viewBackgroundColor || '#ffffff',
+            gridSize: appState.gridSize || null,
+          };
+          const content = JSON.stringify({ elements: Array.from(elements), appState: safeAppState });
+          const blocks = getDetailBlocks(typeId);
+          const b = blocks.find(bl => bl.id === block.id);
+          if (b) {
+            b.content = content;
+            await saveDetailBlocks(typeId, blocks);
+            setWbStatus('Saved ✓');
+          } else {
+            console.warn('[Whiteboard] block not found in detail_blocks for save, id:', block.id);
+          }
+        } catch(e) {
+          console.error('[Whiteboard] Save error for block', block.id, e);
+          setWbStatus('Save failed — check console');
+        }
       }, 2000);
     };
+
+    const isDarkTheme = !document.body.classList.contains('theme-umut') && !document.body.classList.contains('theme-girl');
     const props = {
-      initialData: { elements: parsedElements, appState: { ...parsedAppState, theme: document.body.classList.contains('theme-umut')||document.body.classList.contains('theme-girl') ? 'light' : 'dark' } },
+      initialData: {
+        elements: parsedElements,
+        appState: { ...parsedAppState, theme: isDarkTheme ? 'dark' : 'light' }
+      },
       onChange,
       viewModeEnabled: !canE,
     };
