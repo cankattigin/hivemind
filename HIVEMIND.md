@@ -1,6 +1,7 @@
 # HIVEMIND — Project Document
 
 > Game Production Platform. Keep this file updated whenever a significant change is made.
+> Last updated: 2026-05-26
 
 ---
 
@@ -27,7 +28,8 @@
 | **Frontend** | Single-page app — all UI in `public/index.html` (vanilla JS, no framework) |
 | **File storage** | Supabase Storage (`hivemind-assets` bucket, public) |
 | **Hosting** | Railway (auto-deploys on push to `master`) |
-| **Migrations** | `migrate.js` using `pg` library + `DATABASE_URL` |
+| **Migrations** | Run via Supabase dashboard SQL editor (or `migrate.js` with `DATABASE_URL`) |
+| **Whiteboard** | Excalidraw 0.17.6 via CDN (React 17 + ReactDOM 17) |
 
 ### Key env vars (`.env`, never committed)
 
@@ -44,7 +46,7 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 
 ## Database Schema
 
-> All DB columns are `snake_case`. The JS layer maps them to `camelCase` at response time (e.g. `type_id` → `typeId`, `parent_id` → `parentId`).
+> All DB columns are `snake_case`. The JS layer maps them to `camelCase` at response time.
 
 ### `users`
 | Column | Type | Notes |
@@ -53,6 +55,8 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 | username | text | unique |
 | password | text | bcrypt hash |
 | account_type | text | `director` or `employee` |
+| display_name | text | nullable — director-set display name, falls back to username |
+| status | text | `active` or `archived` — archived = locked out of everything |
 | created_at | timestamptz | |
 
 ### `projects`
@@ -63,11 +67,11 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 | invite_code | text | 8-char unique code |
 | owner_id | uuid | FK → users |
 | created_at | timestamptz | |
-| pipelines | jsonb | legacy category pipelines + `templates` array (pipeline templates live here) |
+| pipelines | jsonb | legacy category pipelines + `templates` array (pipeline templates stored here under `templates` key) |
 | permissions | jsonb | per-role permission overrides `{}` |
 | departments | jsonb | array of dept strings |
 | roles | jsonb | array of role strings available in project |
-| pipeline_templates | jsonb | unused legacy column (templates now in `pipelines.templates`) |
+| pipeline_templates | jsonb | unused legacy column |
 
 ### `memberships`
 | Column | Type | Notes |
@@ -75,9 +79,12 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 | id | uuid | PK |
 | user_id | uuid | FK → users |
 | project_id | uuid | FK → projects |
-| role | text | single role string (legacy, kept in sync) |
-| roles | jsonb | array of role strings (authoritative) |
-| department | text | nullable |
+| role | text | legacy single role string (kept in sync with tiers) |
+| roles | jsonb | legacy roles array (kept for backward compat) |
+| tiers | jsonb | **authoritative** — array of permission tiers e.g. `["member"]`, `["designer","lead"]` |
+| job_title | text | display-only label e.g. "Prop Artist", "Game Designer" |
+| department | text | art / design / programming / qa / audio / production |
+| status | text | `active`, `removed` (from this project), `archived` (company-wide) |
 | joined_at | timestamptz | |
 
 ### `entity_types`  *(displayed as Class or Subclass)*
@@ -90,9 +97,9 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 | color | text | hex color |
 | icon | text | emoji |
 | fields | jsonb | custom field definitions array |
-| pipeline | jsonb | ordered step array for this type |
+| pipeline | jsonb | ordered pipeline step array |
 | parent_id | uuid | nullable FK → entity_types (makes it a Subclass) |
-| detail_blocks | jsonb | array of content blocks (richtext / whiteboard / image) |
+| detail_blocks | jsonb | array of content blocks — see Detail Blocks section |
 | created_at | timestamptz | |
 | created_by | uuid | FK → users |
 
@@ -140,6 +147,7 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 | assigned_by | uuid | FK → users |
 | assigned_by_name | text | |
 | status | text | `not_started`, `in_progress`, `in_review`, `done`, `blocked` |
+| needs_reassignment | boolean | true when assigned user was removed/archived |
 | due_date | date | nullable |
 | note | text | |
 | created_at | timestamptz | |
@@ -150,10 +158,11 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 |---|---|---|
 | id | uuid | PK |
 | entity_id | uuid | FK → entities |
+| parent_id | uuid | nullable FK → comments (for threaded replies) |
 | text | text | |
 | type | text | `comment` or `feedback` |
 | author_id | uuid | FK → users |
-| author_name | text | denormalised for speed |
+| author_name | text | denormalised |
 | resolved | boolean | |
 | created_at | timestamptz | |
 
@@ -175,17 +184,17 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 
 | UI Term | DB / Code Term | Meaning |
 |---|---|---|
-| **Class** | entity_type (no parent) | Top-level category of game content (e.g. "Character", "Prop") |
-| **Subclass** | entity_type (with parent_id) | A child type under a Class (e.g. "Enemy" under "Character") |
-| **Element** | entity | A concrete game asset/item belonging to a Class or Subclass |
-| **Nature** | nature (text column on entities) | The production nature of an Element — see values below |
+| **Class** | entity_type (no parent_id) | Top-level category of game content |
+| **Subclass** | entity_type (with parent_id) | Child type nested under a Class |
+| **Element** | entity | A concrete game asset/item |
+| **Nature** | nature (text on entities) | Production nature of an Element |
 
 ### Nature values
 | Value | Icon | Meaning |
 |---|---|---|
 | `original` | ✨ | Brand-new creation |
 | `variant` | 🔀 | Variation of an existing Element |
-| `reskin` | 🎨 | Visual-only change to existing Element |
+| `reskin` | 🎨 | Visual-only change |
 | `port` | 📦 | Ported from another project/platform |
 | `outsourced` | 🤝 | Made by external party |
 | `procedural` | ⚙️ | Generated procedurally |
@@ -193,16 +202,60 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 
 ---
 
-## Account Types & Roles
+## Permission System
 
-### Account types (set at registration, stored on `users.account_type`)
-- **director** — can create projects, has all permissions in every project
-- **employee** — joins projects via invite code, has role-based permissions
+### Account types (on `users.account_type`)
+- **director** — full access to everything, manages team, cannot be overridden
+- **employee** — project access determined by membership tiers
 
-### Built-in roles (stored in `memberships.roles[]`)
-Directors and leads can assign tasks. Roles that include `lead` or equal `project_manager` are treated as leads.
+### Permission Tiers (on `memberships.tiers[]`, combinable)
 
-Default roles seeded into every project: `lead_designer`, `designer`, `lead_artist`, `character_artist`, `prop_artist`, `environment_artist`, `concept_artist`, `animator`, `vfx_artist`, `ui_artist`, `tech_artist`, `lead_developer`, `developer`, `project_manager`, `qa_lead`, `qa_tester`, `audio_lead`, `audio_designer`, `viewer`.
+| Tier | Content Creation | Assign Tasks | Approve Reviews | Manage Team |
+|---|:---:|:---:|:---:|:---:|
+| `member` | ❌ | Self only | ❌ | ❌ |
+| `designer` | ✅ Classes + Elements | Self only | ❌ | ❌ |
+| `lead` | ❌ | Own dept only | Own dept only | ❌ |
+| `designer` + `lead` | ✅ | Own dept only | Own dept only | ❌ |
+| `manager` | ❌ | Any dept | Any dept | ✅ |
+| director | ✅ | Anyone | Anyone | ✅ |
+
+**Rules:**
+- `lead` is always department-scoped — Lead Artist cannot assign to Programmers
+- `designer` + `lead` in dept `design` = Design Lead (content rights + dept task assignment)
+- `manager` overrides all leads but has zero content creation rights
+- Self-assign is allowed for everyone but still goes to `in_review` requiring lead/manager/director approval
+- Everyone can read and comment freely
+
+### Membership Status
+- `active` — normal access
+- `removed` — removed from this project only; can access other projects
+- `archived` — company-wide; `users.status = 'archived'`; blocked at login entirely
+
+---
+
+## Detail Blocks (on Classes/Subclasses)
+
+Stored as `entity_types.detail_blocks` JSONB array. Each block:
+
+```json
+{
+  "id": "uuid",
+  "type": "richtext" | "whiteboard" | "image",
+  "title": "string",
+  "content": "string or JSON string",
+  "caption": "string (image only)",
+  "height": "number (whiteboard only, px)",
+  "created_at": "ISO timestamp"
+}
+```
+
+| Type | Content stored | Notes |
+|---|---|---|
+| `richtext` | plain text string | Full-width textarea, auto-saves on blur |
+| `whiteboard` | Excalidraw scene JSON string | Lazy-loads React 17 + Excalidraw 0.17.6 from CDN, resizable (default 1000px), drag handle to resize, saves with 2s debounce |
+| `image` | public URL string | Uploaded via `/api/upload/icon`, optional caption |
+
+Only `designer` tier or director can add/edit blocks.
 
 ---
 
@@ -211,101 +264,95 @@ Default roles seeded into every project: `lead_designer`, `designer`, `lead_arti
 ### Auth
 - Register as director or employee
 - Login / logout (session-based, 7-day cookie)
-- `/api/auth/me` hydrates session on page load
+- Archived users blocked at login
 
 ### Projects
-- Directors create projects (auto-generates 8-char invite code)
-- Employees join via invite code (join as `pending`/`viewer` until assigned a role)
+- Directors create projects (auto-generates invite code)
+- Employees join via invite code (start as `pending`/`viewer`)
 - Project settings: rename, regenerate invite code
 
 ### Team Management
-- View all members, their role and department
-- Director assigns roles and departments to members
-- Remove members
+- View all members with role, job title, department, tiers
+- **Display Name** — director can set a display name per person (falls back to username)
+- **Job Title** — free text label (e.g. "Prop Artist")
+- **Tiers** — multi-select checkbox picker (member / designer / lead / manager)
+- **Remove from Project** — revokes project access, flags their tasks ⚠️
+- **Archive (Company)** — locks account entirely, all projects, blocks login, name shows as `Name 💀`
+- **Restore** — director can un-archive or re-add to project
+- Ex-members shown at bottom of Team list in a collapsed section
 
 ### Classes & Subclasses (entity_types)
-- Create / edit / delete Classes (top-level types)
-- Create Subclasses nested under a Class
-- Each Class/Subclass has: name, icon (emoji), color, category, custom fields, pipeline steps
+- Create / edit / delete Classes (top-level) and Subclasses (nested)
+- Each has: name, icon, color, category, custom fields, pipeline steps
 - Sidebar shows Class → Subclass hierarchy
-- Clicking a Class/Subclass shows its Elements in a table
+- **Detail Blocks** — attach Rich Text, Whiteboard (Excalidraw), or Image blocks to any Class/Subclass
 
 ### Elements (entities)
-- Create / edit / delete Elements under a Class or Subclass
-- Fields: name, nature, status, environment, custom fields, tags, icon upload
-- Nature pill selector (7 options) shown on create/edit
-- Nature badge shown in table rows, detail views, and dashboard cards
+- Create / edit / delete Elements
+- **Duplicate** — copies fields/tags/nature/typeId, resets status+environment+pipeline, new item appears at top of list with toast notification (does not navigate away)
+- **Delete** — confirm dialog, removes from list
+- **Sort & Filter toolbar** on both All Elements and Class-specific pages: sort by name/date, filter by Class/Nature/Status/Environment, search by name — all client-side
+- Action buttons (📋 Duplicate, 🗑️ Delete) appear on row hover
+- Nature pill selector, nature badge in tables/cards
+- Icon upload, custom fields, tags
 
 ### Pipeline System
-- Each Class/Subclass has an ordered pipeline of steps (name + department)
-- **Pipeline inheritance**: if a Subclass has no pipeline, it inherits from its parent Class (walks ancestor chain)
-- **Pipeline Templates**: 8 default named templates (3D Prop, 3D Character, UI Asset, VFX, Audio, Gameplay Mechanic, Narrative, Level)
-- Templates CRUD: create, edit, delete, reorder steps
-- Templates stored inside `projects.pipelines.templates` (no extra table)
-- "Apply template" dropdown in Class/Subclass edit modal pre-fills pipeline steps
+- Named reusable pipeline templates (8 defaults: 3D Prop, 3D Character, UI Asset, VFX, Audio, Gameplay Mechanic, Narrative, Level)
+- Pipeline inheritance: Subclass inherits parent Class pipeline if it has none
+- Templates stored in `projects.pipelines.templates` (no extra table)
+- "Apply template" dropdown in Class/Subclass edit modal
 
 ### Tasks
-- Directors and leads assign pipeline steps to team members
+- Self-assign allowed for everyone (goes to in_review)
+- Leads assign tasks within their department only
+- Managers/directors assign across any department
 - Task statuses: `not_started`, `in_progress`, `in_review`, `done`, `blocked`
-- "My Tasks" view for employees
-- Review queue shows all tasks in `in_review` status
-- Task assignment triggers activity log entry
+- **⚠️ Needs Reassignment** — tasks flagged when assignee is removed/archived, sorted to top of task lists
+- Review queue scoped by department for leads
 
-### Comments & Feedback
-- Comment thread on each Element detail panel
-- Comment types: `comment` or `feedback`
-- Comments can be resolved
+### Comments
+- Threaded replies (↩ Reply inline, indented below parent)
+- Delete own comments (directors can delete any)
+- Deleting a parent cascades to delete its replies
 
 ### Activity Log
-- Logged events: element created, status change, environment change, task assigned, task status change
-- Per-project feed (last 50 events), filterable by entity
+- Events: created, status change, environment change, task assigned, task status change
+- Per-project feed, last 50 events
 
 ### Dashboard & Stats
-- Total elements, types, comments, tasks
-- Elements by status and environment
-- Elements by Class (count + progress bar)
-- Recently updated elements
-- Elements currently in Iteration environment
-- Blocked tasks
+- Elements by status/environment/class
+- Recently updated elements, in-iteration list, blocked tasks
 
 ### Reports
 - Completion % by Class
-- Tasks by team member (breakdown by status)
+- Tasks by team member
 - Environment breakdown
 - Unassigned pipeline steps
 - Week activity feed
 
-### File Upload
-- Upload icon images for Elements
-- Stored in Supabase Storage bucket `hivemind-assets` (auto-created if missing)
-- Returns public URL saved to `entities.icon_url`
-
 ### Themes
-- 3-way theme switcher in topbar (cycles on click)
-- 🌙 **Dark** — default dark theme
-- 😊 **Umut** — light theme
-- 💃 **Girl** — pink/Barbie theme
-- Persisted to `localStorage`
+- 3-way switcher in topbar: 🌙 Dark / 😊 Umut / 💃 Girl (Barbie pink)
+- Persisted to localStorage
 
-### Tags
-- Create / edit / delete tags per project
-- Tags have name, category, color, description
-- Assignable to Elements
+### File Upload
+- Icon images for Elements
+- Supabase Storage `hivemind-assets` bucket (auto-created if missing)
 
 ---
 
-## Features Pending / Known Gaps
+## Pending / Known Issues
 
-- [ ] Notifications (task assigned, status changes)
-- [ ] Real-time updates (currently requires page refresh to see others' changes)
+- [ ] **Excalidraw** — CDN loading is fragile (React 17 + Excalidraw 0.17.6). If whiteboard block shows error, check browser console. Needs user confirmation it's working reliably.
+- [ ] **Railway auto-deploy** — was broken (no webhook), manually fixed by reconnecting `cankattigin/hivemind` master via Railway GraphQL API. Monitor to confirm future pushes auto-deploy.
+- [ ] Real-time updates — no live sync, requires page refresh to see others' changes
 - [ ] Element bulk actions (bulk status change, bulk assign)
-- [ ] Search across all elements globally (currently per-project only)
-- [ ] Pipeline step completion tracking per Element (pipeline progress UI)
-- [ ] Export (CSV / spreadsheet of elements)
-- [ ] Role-based permissions editor (permissions JSONB column exists, UI not built)
+- [ ] Export (CSV / spreadsheet)
+- [ ] Role-based permissions editor UI (`permissions` JSONB column exists, no UI built)
 - [ ] Password reset / account management
-- [ ] Audit trail UI (activity API exists, no dedicated page)
-- [ ] Mobile-responsive layout
+- [ ] Audit trail page (activity API exists, no dedicated page)
+- [ ] Mobile layout
+- [ ] Notification system (task assigned, status changes)
+- [ ] `pipeline_templates` column on projects is unused legacy — can be cleaned up
 
 ---
 
@@ -313,13 +360,15 @@ Default roles seeded into every project: `lead_designer`, `designer`, `lead_arti
 
 | Decision | Rationale |
 |---|---|
-| Single `public/index.html` for all UI | Simplest possible SPA, no build step, easy to deploy |
-| Supabase service key on server (bypasses RLS) | Avoids per-table RLS policy complexity; server enforces all auth |
-| Pipeline templates stored in `projects.pipelines.templates` | Avoided creating a new DB table; all pipeline data lives in one JSONB column |
-| `roles` array (not just `role` string) on memberships | Supports multi-role in future; `role` string kept in sync for legacy code |
-| `nature` as free text column (not FK to a lookup table) | Values are a fixed enum in code; avoids join overhead |
-| DB = snake_case, JS = camelCase | Supabase convention; mapped at API boundary in `server.js` response layer |
-| `migrate.js` for all DDL | Supabase JS client cannot run DDL; `pg` library + `DATABASE_URL` is the only reliable path |
+| Single `public/index.html` | No build step, simple deploy |
+| Supabase service key server-side | Avoids RLS complexity; server enforces all auth |
+| Pipeline templates in `projects.pipelines.templates` | No extra table needed |
+| `tiers[]` array separate from `role` string | `role` kept for legacy; `tiers` is authoritative for permissions |
+| `users.status` for company-wide archive | Membership-level removal is per-project; user-level archive blocks login entirely |
+| `display_name` on users, not memberships | Display name is company-wide identity, not per-project |
+| Excalidraw via CDN (React 17 + 0.17.6) | No bundler — must use UMD builds; React 17 chosen for Excalidraw peer-dep compatibility |
+| Migrations via Supabase SQL editor | `pg` + `DATABASE_URL` works locally but Railway injects its own DB URL; Supabase browser API is the most reliable migration path |
+| DB = snake_case, JS = camelCase | Supabase convention; mapped at API response boundary |
 
 ---
 
@@ -327,7 +376,6 @@ Default roles seeded into every project: `lead_designer`, `designer`, `lead_arti
 
 ### Normal change
 ```bash
-# make changes to server.js / public/index.html
 git add .
 git commit -m "describe change"
 git push
@@ -336,9 +384,25 @@ git push
 
 ### Adding a new DB column
 1. Add `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...` to `migrate.js`
-2. Add `DATABASE_URL` to `.env` if not already present (Supabase → Settings → Database → Connection string → URI)
-3. Run `node migrate.js` (or `npm run migrate`)
-4. Commit and push
+2. Run it via Supabase SQL Editor (preferred), or `node migrate.js` with `DATABASE_URL` in `.env`
+3. Commit and push
+
+### If Railway stops auto-deploying
+Railway session expires and the GitHub webhook breaks. Fix by logging into railway.com and running in browser console:
+```js
+// Reconnect GitHub
+fetch('https://backboard.railway.com/graphql/v2', {
+  method: 'POST', credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ query: `mutation { serviceConnect(id: "cf3d1813-28ba-4366-bcf3-d358bcc9be59", input: { repo: "cankattigin/hivemind", branch: "master" }) { id } }` })
+})
+// Then trigger redeploy
+fetch('https://backboard.railway.com/graphql/v2', {
+  method: 'POST', credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ query: `mutation { serviceInstanceRedeploy(environmentId: "4ddf3a63-0a62-4b07-98c8-a2b102ae25fb", serviceId: "cf3d1813-28ba-4366-bcf3-d358bcc9be59") }` })
+})
+```
 
 ### npm scripts
 ```bash
@@ -346,10 +410,9 @@ npm start          # start server locally
 npm run migrate    # run migrate.js (requires DATABASE_URL in .env)
 ```
 
-### Environment variables on Railway
-Set via Railway dashboard → service → Variables:
+### Railway env vars (set in Railway dashboard → service → Variables)
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_KEY`
 - `SESSION_SECRET`
-- `PORT` (Railway sets this automatically)
+- `PORT` (set automatically by Railway)
