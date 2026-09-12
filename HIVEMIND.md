@@ -265,6 +265,9 @@ Only `designer` tier or director can add/edit blocks.
 - Register as director or employee
 - Login / logout (session-based, 7-day cookie)
 - Archived users blocked at login
+- Forgot password — email token flow (256-bit single-use token, 1hr expiry, constant-time response to prevent enumeration)
+- Email verification — sent on register and on email change (48hr token)
+- Account settings modal — change password (server-side strength check, session kept valid), change email (re-verifies)
 
 ### Projects
 - Directors create projects (auto-generates invite code)
@@ -344,11 +347,11 @@ Only `designer` tier or director can add/edit blocks.
 
 - [ ] **Excalidraw** — CDN loading is fragile (React 17 + Excalidraw 0.17.6). If whiteboard block shows error, check browser console. Needs user confirmation it's working reliably.
 - [ ] **Railway auto-deploy** — was broken (no webhook), manually fixed by reconnecting `cankattigin/hivemind` master via Railway GraphQL API. Monitor to confirm future pushes auto-deploy.
-- [ ] Real-time updates — no live sync, requires page refresh to see others' changes
+- [x] Real-time updates — entities, tasks, entity_types, memberships, comments all live-sync via Supabase Realtime
 - [ ] Element bulk actions (bulk status change, bulk assign)
 - [ ] Export (CSV / spreadsheet)
 - [ ] Role-based permissions editor UI (`permissions` JSONB column exists, no UI built)
-- [ ] Password reset / account management
+- [x] Password reset (forgot-password email flow) + account settings (change password, change email)
 - [ ] Audit trail page (activity API exists, no dedicated page)
 - [ ] Mobile layout
 - [ ] Notification system (task assigned, status changes)
