@@ -698,6 +698,49 @@ async function startRealtime(projectId) {
           });
         } catch(e) {}
       })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'entity_types',
+        filter: 'project_id=eq.' + projectId
+      }, function(payload) {
+        if (payload.eventType === 'INSERT') {
+          const t = payload.new;
+          if (!S.types.find(x => x.id === t.id)) {
+            S.types.push({...t, parentId: t.parent_id || t.parentId || null});
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const t = payload.new;
+          const idx = S.types.findIndex(x => x.id === t.id);
+          const mapped = {...t, parentId: t.parent_id || t.parentId || null};
+          if (idx > -1) S.types[idx] = mapped;
+          else S.types.push(mapped);
+        } else if (payload.eventType === 'DELETE') {
+          S.types = S.types.filter(x => x.id !== payload.old.id);
+        }
+        renderSidebarTypes();
+        if (S.currentPage === 'schema') renderSchema();
+        else if (S.currentPage === 'type-entities') renderTypeEntities();
+      })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'memberships',
+        filter: 'project_id=eq.' + projectId
+      }, function(payload) {
+        if (S.currentPage === 'team') renderTeam();
+        if (payload.new && S.user && payload.new.user_id === S.user.id) {
+          S.membership = {...(S.membership||{}), ...payload.new,
+            tiers: payload.new.tiers || S.membership?.tiers || ['member']};
+          const roleEl = document.getElementById('sb-role');
+          if (roleEl) roleEl.textContent = S.membership.job_title || S.membership.role || S.user.accountType;
+          applyPermissionUI();
+        }
+      })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'comments'
+      }, function(payload) {
+        const entityId = payload.new?.entity_id || payload.old?.entity_id;
+        if (entityId && entityId === S.currentEntityId) {
+          loadComments(entityId);
+        }
+      })
       .subscribe(function(status) {
         const ind = document.getElementById('rt-indicator');
         if (ind) ind.style.display = 'flex';
