@@ -121,59 +121,36 @@ async function getMembership(userId, projectId) {
   return data;
 }
 
-function getUserRolesFromMembership(membership, user) {
-  if (user?.account_type === 'director') return ['director'];
-  if (!membership) return [];
-  return Array.isArray(membership.roles) ? membership.roles : [membership.role || 'viewer'];
-}
-
-function getUserTiersFromMembership(membership, user) {
-  if (user?.account_type === 'director') return ['director'];
-  if (!membership) return ['member'];
-  const t = membership.tiers;
-  return Array.isArray(t) && t.length > 0 ? t : ['member'];
-}
-
-async function getUserRoles(userId, projectId) {
-  const user = await getUser(userId);
-  if (user?.account_type === 'director') return ['director'];
-  const m = await getMembership(userId, projectId);
-  return getUserRolesFromMembership(m, user);
-}
-
 async function getUserMembership(userId, projectId) {
   const user = await getUser(userId);
   const m = await getMembership(userId, projectId);
-  return { user, membership: m, tiers: getUserTiersFromMembership(m, user) };
+  return { user, membership: m };
 }
 
 // ─── PERMISSION HELPERS ───────────────────────────────
-function canAssignTasksToDept(tiers, userDept, targetDept, accountType) {
+// Two independent axes — do not collapse into a single level.
+
+// Task assignment axis
+function canAssignToAnyone(membership, accountType) {
   if (accountType === 'director') return true;
-  if (tiers.includes('manager')) return true;
-  if (tiers.includes('lead') && userDept === targetDept) return true;
+  if (membership?.is_manager) return true;
   return false;
 }
 
-function canEditContent(tiers, accountType) {
-  if (accountType === 'director') return true;
-  if (tiers.includes('designer')) return true;
+function canAssignToDept(membership, accountType, targetDept) {
+  if (canAssignToAnyone(membership, accountType)) return true;
+  if (membership?.is_lead) {
+    const myDept = membership.department || '';
+    return myDept && myDept === targetDept;
+  }
   return false;
 }
 
-function canApproveReviews(tiers, userDept, taskDept, accountType) {
+// Data entry axis
+function canWriteData(membership, accountType) {
   if (accountType === 'director') return true;
-  if (tiers.includes('manager')) return true;
-  if (tiers.includes('lead') && userDept === taskDept) return true;
+  if (membership?.role === 'designer') return true;
   return false;
-}
-
-function isDirectorOrLead(roles) {
-  return roles.some(r => r === 'director' || r.includes('lead') || r === 'project_manager');
-}
-
-function canEditDesign(roles) {
-  return roles.some(r => r === 'director' || r.includes('lead') || r === 'designer' || r === 'project_manager');
 }
 
 async function logActivity(projectId, userId, entityId, action, detail) {
@@ -388,7 +365,7 @@ app.post('/api/projects', auth, async (req, res) => {
   };
   const { error } = await supabase.from('projects').insert(project);
   if (error) return res.status(500).json({ error: error.message });
-  await supabase.from('memberships').insert({ id: uuidv4(), user_id: req.session.userId, project_id: project.id, role: 'director', roles: ['director'], department: null, joined_at: new Date().toISOString() });
+  await supabase.from('memberships').insert({ id: uuidv4(), user_id: req.session.userId, project_id: project.id, role: 'director', is_lead: false, is_manager: false, department: null, joined_at: new Date().toISOString() });
   res.json({ ...project, inviteCode: project.invite_code, ownerId: project.owner_id });
 });
 
@@ -441,8 +418,8 @@ app.post('/api/projects/join', auth, async (req, res) => {
   if (!project) return res.status(404).json({ error: 'Invalid invite code' });
   const { data: existing } = await supabase.from('memberships').select('id').eq('user_id', req.session.userId).eq('project_id', project.id).single();
   if (existing) return res.status(400).json({ error: 'Already a member' });
-  await supabase.from('memberships').insert({ id: uuidv4(), user_id: req.session.userId, project_id: project.id, role: 'pending', roles: ['viewer'], department: null, joined_at: new Date().toISOString() });
-  res.json({ project: { ...project, inviteCode: project.invite_code }, membership: { role: 'pending' } });
+  await supabase.from('memberships').insert({ id: uuidv4(), user_id: req.session.userId, project_id: project.id, role: 'team_member', is_lead: false, is_manager: false, department: null, joined_at: new Date().toISOString() });
+  res.json({ project: { ...project, inviteCode: project.invite_code }, membership: { role: 'team_member' } });
 });
 
 // ─── TEAM ─────────────────────────────────────────────
@@ -461,18 +438,22 @@ app.get('/api/projects/:id/members', auth, async (req, res) => {
       accountType: user?.account_type,
       userStatus: user?.status || 'active',
       membershipStatus: m.status || 'active',
-      tiers: Array.isArray(m.tiers) && m.tiers.length > 0 ? m.tiers : ['member'],
+      role: m.role || 'team_member',
+      is_lead: m.is_lead || false,
+      is_manager: m.is_manager || false,
       job_title: m.job_title || ''
     };
   }));
 });
 
 app.put('/api/projects/:id/members/:userId', auth, async (req, res) => {
+  const requester = await getUser(req.session.userId);
+  if (requester?.account_type !== 'director') return res.status(403).json({ error: 'Directors only' });
   const updates = {};
-  if (req.body.role) { updates.role = req.body.role; updates.roles = [req.body.role]; }
-  if (req.body.roles) updates.roles = req.body.roles;
+  if (req.body.role !== undefined) updates.role = req.body.role;
+  if (req.body.is_lead !== undefined) updates.is_lead = req.body.is_lead;
+  if (req.body.is_manager !== undefined) updates.is_manager = req.body.is_manager;
   if (req.body.department !== undefined) updates.department = req.body.department;
-  if (req.body.tiers) updates.tiers = req.body.tiers;
   if (req.body.job_title !== undefined) updates.job_title = req.body.job_title;
   const { data, error } = await supabase.from('memberships').update(updates).eq('user_id', req.params.userId).eq('project_id', req.params.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
@@ -566,6 +547,8 @@ app.get('/api/projects/:pid/entity-types', auth, async (req, res) => {
 });
 
 app.post('/api/projects/:pid/entity-types', auth, async (req, res) => {
+  const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   const { data: project } = await supabase.from('projects').select('pipelines').eq('id', req.params.pid).single();
   const pipelines = project?.pipelines || DEFAULT_PIPELINES;
   const category = req.body.category || 'entity';
@@ -586,6 +569,8 @@ app.post('/api/projects/:pid/entity-types', auth, async (req, res) => {
 });
 
 app.put('/api/projects/:pid/entity-types/:id', auth, async (req, res) => {
+  const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   const updates = {};
   ['name','category','color','icon','fields','pipeline','detail_blocks'].forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
   const { data, error } = await supabase.from('entity_types').update(updates).eq('id', req.params.id).eq('project_id', req.params.pid).select().single();
@@ -594,6 +579,8 @@ app.put('/api/projects/:pid/entity-types/:id', auth, async (req, res) => {
 });
 
 app.delete('/api/projects/:pid/entity-types/:id', auth, async (req, res) => {
+  const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   await supabase.from('entity_types').delete().eq('id', req.params.id).eq('project_id', req.params.pid);
   res.json({ ok: true });
 });
@@ -605,6 +592,8 @@ app.get('/api/projects/:pid/tags', auth, async (req, res) => {
 });
 
 app.post('/api/projects/:pid/tags', auth, async (req, res) => {
+  const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   const tag = { id: uuidv4(), project_id: req.params.pid, name: req.body.name, category: req.body.category || 'general', color: req.body.color || '#8b5cf6', description: req.body.description || '', created_at: new Date().toISOString() };
   const { data, error } = await supabase.from('tags').insert(tag).select().single();
   if (error) return res.status(500).json({ error: error.message });
@@ -612,12 +601,16 @@ app.post('/api/projects/:pid/tags', auth, async (req, res) => {
 });
 
 app.put('/api/projects/:pid/tags/:id', auth, async (req, res) => {
+  const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   const { data, error } = await supabase.from('tags').update(req.body).eq('id', req.params.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
 app.delete('/api/projects/:pid/tags/:id', auth, async (req, res) => {
+  const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   await supabase.from('tags').delete().eq('id', req.params.id);
   res.json({ ok: true });
 });
@@ -639,6 +632,8 @@ app.get('/api/projects/:pid/entities/:id', auth, async (req, res) => {
 });
 
 app.post('/api/projects/:pid/entities', auth, async (req, res) => {
+  const { user: reqUser, membership: reqMembership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   const entity = {
     id: uuidv4(), project_id: req.params.pid,
     name: req.body.name, type_id: req.body.typeId,
@@ -657,6 +652,8 @@ app.post('/api/projects/:pid/entities', auth, async (req, res) => {
 });
 
 app.put('/api/projects/:pid/entities/:id', auth, async (req, res) => {
+  const { user: reqUser, membership: reqMembership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   const { data: old } = await supabase.from('entities').select('*').eq('id', req.params.id).single();
   const updates = { ...req.body, updated_at: new Date().toISOString() };
   if (req.body.typeId) { updates.type_id = req.body.typeId; delete updates.typeId; }
@@ -670,6 +667,8 @@ app.put('/api/projects/:pid/entities/:id', auth, async (req, res) => {
 });
 
 app.delete('/api/projects/:pid/entities/:id', auth, async (req, res) => {
+  const { user: reqUser, membership: reqMembership } = await getUserMembership(req.session.userId, req.params.pid);
+  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
   await supabase.from('entities').delete().eq('id', req.params.id).eq('project_id', req.params.pid);
   res.json({ ok: true });
 });
@@ -717,13 +716,12 @@ app.get('/api/projects/:pid/tasks', auth, async (req, res) => {
 });
 
 app.post('/api/projects/:pid/tasks', auth, async (req, res) => {
-  const { user, membership, tiers } = await getUserMembership(req.session.userId, req.params.pid);
+  const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
   const isSelfAssign = req.body.assigneeId === req.session.userId;
   const taskDept = req.body.dept || '';
-  const requesterDept = membership?.department || '';
 
-  if (!isSelfAssign && !canAssignTasksToDept(tiers, requesterDept, taskDept, user?.account_type)) {
-    return res.status(403).json({ error: 'You do not have permission to assign tasks to this department' });
+  if (!isSelfAssign && !canAssignToDept(membership, user?.account_type, taskDept)) {
+    return res.status(403).json({ error: 'Bu departmana görev atama yetkiniz yok.' });
   }
 
   await supabase.from('tasks').delete().eq('entity_id', req.body.entityId).eq('step_id', req.body.stepId).eq('project_id', req.params.pid);
@@ -746,17 +744,17 @@ app.put('/api/projects/:pid/tasks/:id', auth, async (req, res) => {
 });
 
 app.get('/api/projects/:pid/review-queue', auth, async (req, res) => {
-  const { user, membership, tiers } = await getUserMembership(req.session.userId, req.params.pid);
+  const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
   let query = supabase.from('tasks').select('*').eq('project_id', req.params.pid).eq('status', 'in_review');
   if (user?.account_type !== 'director') {
-    if (tiers.includes('manager')) {
+    if (membership?.is_manager) {
       // managers see all depts — no filter needed
-    } else if (tiers.includes('lead')) {
+    } else if (membership?.is_lead) {
       // leads see only their own department
       const dept = membership?.department || '';
       if (dept) query = query.eq('dept', dept);
     } else {
-      // regular members only see tasks assigned to them
+      // everyone else sees only tasks assigned to them
       query = query.eq('assignee_id', req.session.userId);
     }
   }

@@ -726,10 +726,9 @@ async function startRealtime(projectId) {
       }, function(payload) {
         if (S.currentPage === 'team') renderTeam();
         if (payload.new && S.user && payload.new.user_id === S.user.id) {
-          S.membership = {...(S.membership||{}), ...payload.new,
-            tiers: payload.new.tiers || S.membership?.tiers || ['member']};
+          S.membership = {...(S.membership||{}), ...payload.new};
           const roleEl = document.getElementById('sb-role');
-          if (roleEl) roleEl.textContent = S.membership.job_title || S.membership.role || S.user.accountType;
+          if (roleEl) roleEl.textContent = S.membership.job_title || ROLE_LABELS[S.membership.role] || S.user.accountType;
           applyPermissionUI();
         }
       })
@@ -763,73 +762,43 @@ function stopRealtime() {
 }
 
 // ═══ PERMISSIONS ════════════════════════════════════════
-function getMyRoles() {
-  if (S.user?.accountType === 'director') return ['director'];
-  if (!S.membership) return ['viewer'];
-  const rolesArr = Array.isArray(S.membership.roles) ? S.membership.roles : null;
-  const roleStr = S.membership.role;
-  // roles array can be stale ['viewer'] when director only updated the role string — prefer role string in that case
-  if (rolesArr && rolesArr.length > 0 && !(rolesArr.length === 1 && rolesArr[0] === 'viewer' && roleStr && roleStr !== 'viewer' && roleStr !== 'pending')) {
-    return rolesArr;
-  }
-  return [roleStr || 'viewer'];
+// Two independent axes — do not collapse into a single level.
+
+function isDirector() {
+  return S.user?.accountType === 'director' || S.membership?.role === 'director';
 }
 
-function isDirector() { return S.user?.accountType === 'director' || getMyRoles().includes('director'); }
-
-// ─── TIER HELPERS ─────────────────────────────────────
-function myTiers() {
-  if (S.user?.accountType === 'director') return ['director'];
-  return S.membership?.tiers || ['member'];
-}
-function isDesigner() {
-  return isDirector() || myTiers().includes('designer');
-}
-function isLead() {
-  return isDirector() || myTiers().includes('lead') || myTiers().includes('manager');
-}
-function isManager() {
-  return isDirector() || myTiers().includes('manager');
-}
+// Data entry axis
 function canEditContent() {
-  return isDirector() || myTiers().includes('designer');
+  return S.user?.accountType === 'director' || S.membership?.role === 'designer' || S.membership?.role === 'director';
 }
+
+// Task assignment axis
+function isLead() { return !!(S.membership?.is_lead); }
+function isManager() { return !!(S.membership?.is_manager); }
+
+function canAssignToAnyone() {
+  return isDirector() || isManager();
+}
+
 function canAssignInDept(dept) {
-  if (isDirector() || isManager()) return true;
-  const t = myTiers();
-  return t.includes('lead') && S.membership?.department === dept;
-}
-
-// Check if my roles have a specific permission (legacy — kept for pipeline/schema checks)
-function hasPerm(category, col) {
-  if (isDirector()) return true;
-  const roles = getMyRoles();
-  const perms = S.project?.permissions || {};
-  return roles.some(function(role) {
-    var rp = perms[role] || getDefaultPerms(role);
-    return (rp[category]||[]).includes(col);
-  });
-}
-
-function isLeadOrDirector() {
-  return isDirector() || isLead();
-}
-
-function canEditDesign() {
-  return canEditContent();
+  if (canAssignToAnyone()) return true;
+  return isLead() && (S.membership?.department || '') === dept;
 }
 
 function canUpdatePipelineStep(stepDept) {
   if (isDirector()) return true;
-  // Check if they have 'all' pipeline permission
-  if (hasPerm('pipeline','all')) return true;
-  // Check if they have 'own_dept' and their department matches
-  if (hasPerm('pipeline','own_dept')) {
+  if (isManager()) return true;
+  if (isLead()) {
     const myDept = S.membership?.department || '';
     return !stepDept || !myDept || myDept === stepDept;
   }
-  return false;
+  return canEditContent();
 }
+
+// Aliases kept for call sites
+function canEditDesign() { return canEditContent(); }
+function isLeadOrDirector() { return isDirector() || isLead() || isManager(); }
 
 const COLORS = ['#6366f1','#a855f7','#ec4899','#ef4444','#f59e0b','#10b981','#14b8a6','#3b82f6','#f97316','#06b6d4'];
 const STATUSES = ['draft','in-progress','review','done','blocked'];
@@ -1212,7 +1181,7 @@ async function enterProject(projectId) {
   document.getElementById('sb-project-name').textContent = S.project.name;
   document.getElementById('sb-avatar').textContent = S.user.username[0].toUpperCase();
   document.getElementById('sb-username').textContent = S.user.username;
-  document.getElementById('sb-role').textContent = S.membership?.job_title || S.membership?.role || S.user.accountType;
+  document.getElementById('sb-role').textContent = S.membership?.job_title || ROLE_LABELS[S.membership?.role] || S.user.accountType;
   await loadProjectData();
   // Start realtime subscription for this project
   startRealtime(projectId);
@@ -2292,67 +2261,37 @@ function applyPipelineTemplate(templateId) {
 }
 
 // ═══ TEAM ═══════════════════════════════════════════════
-const TIER_OPTIONS = ['member','designer','lead','manager'];
-const TIER_COLORS = { member:'var(--text3)', designer:'var(--accent2)', lead:'var(--amber)', manager:'var(--green)' };
+const ROLE_COLORS = { team_member:'var(--text3)', designer:'var(--accent2)', director:'var(--amber)' };
+const ROLE_LABELS = { team_member:'Team Member', designer:'Designer', director:'Director' };
 
-function renderTierPills(tiers) {
-  const t = Array.isArray(tiers) && tiers.length ? tiers : ['member'];
-  return t.map(tier => `<span class="badge" style="background:var(--bg4);color:${TIER_COLORS[tier]||'var(--text2)'};border:1px solid var(--border2);font-size:10px">${tier}</span>`).join(' ');
+function renderRolePill(role, isLead, isManager) {
+  const label = ROLE_LABELS[role] || role;
+  const color = ROLE_COLORS[role] || 'var(--text2)';
+  let flags = '';
+  if (isManager) flags += ' <span class="badge" style="background:var(--bg4);color:var(--green);border:1px solid var(--border2);font-size:10px">Manager</span>';
+  if (isLead) flags += ' <span class="badge" style="background:var(--bg4);color:var(--amber);border:1px solid var(--border2);font-size:10px">Lead</span>';
+  return `<span class="badge" style="background:var(--bg4);color:${color};border:1px solid var(--border2);font-size:10px">${label}</span>${flags}`;
 }
 
-function buildTierDropdownHtml(userId, currentTiers) {
-  const tiers = Array.isArray(currentTiers) && currentTiers.length ? currentTiers : ['member'];
-  const opts = TIER_OPTIONS.map(t =>
-    `<label style="display:flex;align-items:center;gap:6px;padding:4px 8px;cursor:pointer;font-size:12px;border-radius:4px" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='transparent'">
-      <input type="checkbox" ${tiers.includes(t)?'checked':''} style="width:auto;accent-color:var(--accent);cursor:pointer"
-        onchange="toggleMemberTier('${userId}',this)">
-      <span style="color:${TIER_COLORS[t]||'var(--text2)'}">${t}</span>
-    </label>`
-  ).join('');
-  return `<div style="position:relative;display:inline-block">
-    <div style="display:flex;flex-wrap:wrap;gap:3px;cursor:pointer;min-width:90px" onclick="event.stopPropagation();toggleTierDropdown('td-${userId}')">
-      ${renderTierPills(tiers)}
-      <span style="font-size:10px;color:var(--text3);align-self:center">▾</span>
-    </div>
-    <div id="td-${userId}" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
-      ${opts}
+function buildRoleControlsHtml(userId, role, isLead, isManager) {
+  const roles = ['team_member','designer'];
+  return `<div style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+    <select style="font-size:12px;padding:4px 8px" onchange="updateMember('${userId}',{role:this.value})">
+      ${roles.map(r=>`<option value="${r}" ${role===r?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:10px;padding:2px 4px">
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
+        <input type="checkbox" ${isLead?'checked':''} style="width:auto;accent-color:var(--amber);cursor:pointer"
+          onchange="updateMember('${userId}',{is_lead:this.checked})">
+        <span style="color:var(--amber)">Lead</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
+        <input type="checkbox" ${isManager?'checked':''} style="width:auto;accent-color:var(--green);cursor:pointer"
+          onchange="updateMember('${userId}',{is_manager:this.checked})">
+        <span style="color:var(--green)">Manager</span>
+      </label>
     </div>
   </div>`;
-}
-
-function toggleTierDropdown(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const isOpen = el.style.display !== 'none';
-  // close all others first
-  document.querySelectorAll('[id^="td-"]').forEach(d => { d.style.display = 'none'; });
-  if (!isOpen) el.style.display = 'block';
-}
-
-// Close tier dropdowns when clicking elsewhere
-document.addEventListener('click', () => {
-  document.querySelectorAll('[id^="td-"]').forEach(d => { d.style.display = 'none'; });
-});
-
-async function toggleMemberTier(userId, checkbox) {
-  // Find the member and update tiers
-  const member = window._teamMembers?.find(m => m.userId === userId);
-  if (!member) return;
-  const tierName = checkbox.closest('label').querySelector('span').textContent.trim();
-  let tiers = Array.isArray(member.tiers) && member.tiers.length ? [...member.tiers] : ['member'];
-  if (checkbox.checked) {
-    if (!tiers.includes(tierName)) tiers.push(tierName);
-  } else {
-    tiers = tiers.filter(t => t !== tierName);
-    if (tiers.length === 0) tiers = ['member']; // always keep at least member
-  }
-  member.tiers = tiers;
-  await updateMember(userId, { tiers });
-  // Refresh the pills display
-  const pillsDiv = checkbox.closest('[id^="td-"]')?.previousElementSibling;
-  if (pillsDiv) {
-    pillsDiv.innerHTML = renderTierPills(tiers) + '<span style="font-size:10px;color:var(--text3);align-self:center">▾</span>';
-  }
 }
 
 async function renderTeam() {
@@ -2408,10 +2347,8 @@ async function renderTeam() {
         ` : `<span style="font-size:12px;color:var(--text3)">${m.job_title||'—'}</span>`}
       </td>`:''}
       <td>${isDir && !isSelf && !isEx ? `
-        <select style="font-size:12px;padding:4px 8px;width:160px" onchange="updateMember('${m.userId}','role',this.value)">
-          <option value="pending" ${m.role==='pending'?'selected':''}>⏳ Pending</option>
-          ${(S.project.roles||[]).map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${r.replace(/_/g,' ')}</option>`).join('')}
-        </select>` : `<span class="badge badge-draft">${(m.role||'viewer').replace(/_/g,' ')}</span>`}
+        ${buildRoleControlsHtml(m.userId, m.role||'team_member', m.is_lead||false, m.is_manager||false)}
+      ` : renderRolePill(m.role||'team_member', m.is_lead||false, m.is_manager||false)}
       </td>
       <td>${isDir && !isSelf && !isEx ? `
         <select style="font-size:12px;padding:4px 8px;width:140px" onchange="updateMember('${m.userId}','department',this.value)">
@@ -2419,7 +2356,6 @@ async function renderTeam() {
           ${(S.project.departments||[]).map(d=>`<option value="${d}" ${m.department===d?'selected':''}>${d}</option>`).join('')}
         </select>` : m.department||'—'}
       </td>
-      ${isDir?`<td>${!isSelf && !isEx ? buildTierDropdownHtml(m.userId, m.tiers) : renderTierPills(m.tiers)}</td>`:''}
       ${isDir?`<td style="white-space:nowrap">${!isSelf && !isEx ? `
         <button class="btn btn-xs btn-danger" style="margin-bottom:3px" onclick="removeFromProject('${m.userId}','${(m.displayName||m.username).replace(/'/g,'\\\'')}')" title="Remove from this project only">Remove</button>
         <button class="btn btn-xs" style="border-color:var(--red-border);color:var(--red);margin-bottom:3px" onclick="archiveCompany('${m.userId}','${(m.displayName||m.username).replace(/'/g,'\\\'')}')" title="Archive company-wide">Archive</button>
@@ -2438,9 +2374,8 @@ async function renderTeam() {
         <th>Member</th>
         ${isDir?'<th>Display Name</th>':''}
         ${isDir?'<th>Job Title</th>':''}
-        <th>Role(s)</th>
+        <th>Role</th>
         <th>Department</th>
-        ${isDir?'<th>Tiers</th>':''}
         ${isDir?'<th>Actions</th>':''}
       </tr></thead>
       <tbody>${activeRows}</tbody></table>
@@ -2456,9 +2391,8 @@ async function renderTeam() {
           <th>Member</th>
           ${isDir?'<th>Display Name</th>':''}
           ${isDir?'<th>Job Title</th>':''}
-          <th>Role(s)</th>
+          <th>Role</th>
           <th>Department</th>
-          ${isDir?'<th>Tiers</th>':''}
           ${isDir?'<th>Actions</th>':''}
         </tr></thead>
         <tbody>${exRows}</tbody></table>
@@ -2581,16 +2515,10 @@ async function saveDepts() {
 }
 
 async function updateMember(userId, updates) {
-  // Support both updateMember(id, {key:val}) and legacy updateMember(id, 'field', value)
-  let body;
-  if (typeof updates === 'string') {
-    const field = updates, value = arguments[2];
-    body = {[field]: value};
-    if (field === 'role') body.roles = [value];
-  } else {
-    body = updates;
-  }
-  await api('PUT',`/api/projects/${S.project.id}/members/${userId}`,body);
+  const body = typeof updates === 'object' ? updates : {[updates]: arguments[2]};
+  const member = window._teamMembers?.find(m => m.userId === userId);
+  if (member) Object.assign(member, body);
+  await api('PUT',`/api/projects/${S.project.id}/members/${userId}`, body);
 }
 async function removeMember(userId) {
   if(!confirm('Remove this member from the project?')) return;
