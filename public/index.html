@@ -279,29 +279,44 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
       <div class="auth-tab" onclick="authTab('register')">Register</div>
     </div>
     <div id="pane-login">
-      <div class="form-group"><label class="form-label">Username</label><input id="l-user" placeholder="Username" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <div class="form-group"><label class="form-label">Password</label><input id="l-pass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="doLogin()">Sign in</button>
+      <div class="form-group"><label class="form-label">Kullanıcı Adı</label><input id="l-user" placeholder="Kullanıcı adı" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="form-group"><label class="form-label">Şifre</label><input id="l-pass" type="password" placeholder="Şifre" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="doLogin()">Giriş Yap</button>
       <p id="l-err" style="color:var(--red);font-size:12px;margin-top:8px;text-align:center"></p>
+      <p style="text-align:center;margin-top:12px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:12px;color:var(--text3);text-decoration:none" onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">Şifremi unuttum</a></p>
+    </div>
+    <div id="pane-forgot" style="display:none">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">E-posta adresinizi girin, şifre sıfırlama bağlantısı gönderelim.</p>
+      <div class="form-group"><label class="form-label">E-posta</label><input id="f-email" type="email" placeholder="ornek@mail.com" onkeydown="if(event.key==='Enter')doForgotPassword()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doForgotPassword()">Sıfırlama Bağlantısı Gönder</button>
+      <p id="f-msg" style="font-size:12px;margin-top:8px;text-align:center"></p>
+      <p style="text-align:center;margin-top:12px"><a href="#" onclick="showLoginPane();return false;" style="font-size:12px;color:var(--text3);text-decoration:none">← Geri dön</a></p>
     </div>
     <div id="pane-register" style="display:none">
-      <div class="form-group"><label class="form-label">Username</label><input id="r-user" placeholder="Choose a username"></div>
-      <div class="form-group"><label class="form-label">Password</label><input id="r-pass" type="password" placeholder="Choose a password"></div>
+      <div class="form-group"><label class="form-label">Kullanıcı Adı</label><input id="r-user" placeholder="Kullanıcı adı seçin"></div>
+      <div class="form-group"><label class="form-label">E-posta <span style="color:var(--text3);font-weight:400">(isteğe bağlı)</span></label><input id="r-email" type="email" placeholder="ornek@mail.com"></div>
+      <div class="form-group"><label class="form-label">Şifre</label><input id="r-pass" type="password" placeholder="Şifre seçin (en az 8 karakter)"></div>
       <div class="form-group">
-        <label class="form-label">I am a...</label>
+        <label class="form-label">Ben...</label>
         <div class="auth-type-grid">
           <div class="auth-type-btn on" id="at-director" onclick="selectAccountType('director')">
-            <div class="atb-icon">👑</div><div class="atb-label">Game Director</div><div class="atb-desc">I create & manage projects</div>
+            <div class="atb-icon">👑</div><div class="atb-label">Game Director</div><div class="atb-desc">Proje oluşturur ve yönetirim</div>
           </div>
           <div class="auth-type-btn" id="at-member" onclick="selectAccountType('member')">
-            <div class="atb-icon">🎮</div><div class="atb-label">Team Member</div><div class="atb-desc">I join an existing project</div>
+            <div class="atb-icon">🎮</div><div class="atb-label">Team Member</div><div class="atb-desc">Mevcut bir projeye katılırım</div>
           </div>
         </div>
       </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doRegister()">Create Account</button>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doRegister()">Hesap Oluştur</button>
       <p id="r-err" style="color:var(--red);font-size:12px;margin-top:8px;text-align:center"></p>
     </div>
   </div>
+</div>
+
+<div id="email-banner" style="display:none;background:#2a1f0a;border-bottom:1px solid #3d2e0a;padding:10px 20px;font-size:13px;color:#f59e0b;display:none;align-items:center;gap:10px">
+  <span>⚠️ E-posta adresiniz henüz doğrulanmamış.</span>
+  <button onclick="resendVerification()" style="background:none;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Tekrar Gönder</button>
+  <span id="banner-msg" style="font-size:12px"></span>
 </div>
 
 <div id="hub-screen">
@@ -836,6 +851,21 @@ function authTab(t) {
     document.getElementById('pane-'+x).style.display = x===t?'block':'none';
     document.querySelectorAll('.auth-tab')[i].classList.toggle('on', x===t);
   });
+  document.getElementById('pane-forgot').style.display = 'none';
+}
+function showLoginPane() {
+  document.getElementById('pane-login').style.display = 'block';
+  document.getElementById('pane-forgot').style.display = 'none';
+  document.getElementById('pane-register').style.display = 'none';
+  document.querySelectorAll('.auth-tab')[0].classList.add('on');
+  document.querySelectorAll('.auth-tab')[1].classList.remove('on');
+}
+function showForgotPassword() {
+  document.getElementById('pane-login').style.display = 'none';
+  document.getElementById('pane-forgot').style.display = 'block';
+  document.getElementById('pane-register').style.display = 'none';
+  document.getElementById('f-msg').textContent = '';
+  document.getElementById('f-email').value = '';
 }
 function selectAccountType(t) {
   selectedAccountType = t;
@@ -843,17 +873,43 @@ function selectAccountType(t) {
   document.getElementById('at-member').classList.toggle('on', t==='member');
 }
 async function doLogin() {
+  document.getElementById('l-err').textContent = '';
   const res = await api('POST','/api/auth/login',{username:v('l-user'),password:v('l-pass')});
   if (res.error) { document.getElementById('l-err').textContent=res.error; return; }
   S.user=res; afterAuth();
 }
+async function doForgotPassword() {
+  const email = v('f-email');
+  const msgEl = document.getElementById('f-msg');
+  msgEl.style.color = 'var(--text2)';
+  msgEl.textContent = 'Gönderiliyor...';
+  const res = await api('POST','/api/auth/forgot-password',{email});
+  msgEl.style.color = res.error ? 'var(--red)' : 'var(--green)';
+  msgEl.textContent = res.error || res.message || '';
+}
 async function doRegister() {
-  const res = await api('POST','/api/auth/register',{username:v('r-user'),password:v('r-pass'),accountType:selectedAccountType});
+  document.getElementById('r-err').textContent = '';
+  const res = await api('POST','/api/auth/register',{username:v('r-user'),password:v('r-pass'),email:v('r-email'),accountType:selectedAccountType});
   if (res.error) { document.getElementById('r-err').textContent=res.error; return; }
   S.user=res; afterAuth();
 }
+async function resendVerification() {
+  const msgEl = document.getElementById('banner-msg');
+  msgEl.textContent = 'Gönderiliyor...';
+  const user = await api('GET','/api/auth/me');
+  if (!user || !user.email) { msgEl.textContent = 'E-posta adresi bulunamadı.'; return; }
+  const res = await api('POST','/api/auth/resend-verification',{email:user.email});
+  msgEl.textContent = res.message || res.error || '';
+}
 async function doLogout() { stopRealtime(); await api('POST','/api/auth/logout'); location.reload(); }
-async function afterAuth() { document.getElementById('auth-screen').style.display='none'; showHub(); }
+async function afterAuth() {
+  document.getElementById('auth-screen').style.display='none';
+  if (S.user && S.user.email && S.user.emailVerified === false) {
+    const banner = document.getElementById('email-banner');
+    banner.style.display = 'flex';
+  }
+  showHub();
+}
 
 // ═══ HUB ════════════════════════════════════════════════
 async function showHub() {

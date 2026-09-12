@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hivemind — E-posta Doğrulama</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--bg2:#1a1d27;--border2:#3d4470;--text:#e8eaf6;--text2:#9fa8c7;--text3:#5c6490;--accent:#6366f1;--red:#ef4444;--red-bg:#2a1010;--green:#10b981;--green-bg:#0d2a1f;--radius:8px;--radius-xl:16px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;font-size:14px}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:40px;width:400px;box-shadow:0 24px 60px rgba(0,0,0,.4);text-align:center}
+.logo h1{font-size:28px;font-weight:900;background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo p{font-size:13px;color:var(--text3);margin-top:4px;margin-bottom:32px}
+.icon{font-size:56px;margin-bottom:20px}
+h2{font-size:18px;font-weight:700;margin-bottom:8px}
+.sub{font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.6}
+.btn{display:block;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600;text-decoration:none;margin-top:16px;transition:background .15s}
+.btn:hover{background:#5558e8}
+.msg.error{background:var(--red-bg);color:var(--red);border:1px solid #3a1010;padding:10px;border-radius:var(--radius);margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><h1>🧠 Hivemind</h1><p>Game Production Platform</p></div>
+  <div id="loading-view">
+    <div class="icon">⏳</div>
+    <h2>Doğrulanıyor...</h2>
+    <p class="sub">E-posta adresiniz doğrulanıyor, lütfen bekleyin.</p>
+  </div>
+  <div id="success-view" style="display:none">
+    <div class="icon">✅</div>
+    <h2>E-posta Doğrulandı</h2>
+    <p class="sub">E-posta adresiniz başarıyla doğrulandı. Artık tüm özelliklere erişebilirsiniz.</p>
+    <a href="/" class="btn">Uygulamaya Git</a>
+  </div>
+  <div id="error-view" style="display:none">
+    <div class="icon">❌</div>
+    <h2>Doğrulama Başarısız</h2>
+    <p id="err-msg" class="sub"></p>
+    <a href="/" class="btn">Giriş Sayfasına Dön</a>
+  </div>
+</div>
+<script>
+(async () => {
+  const token = new URLSearchParams(location.search).get('token');
+  if (!token) {
+    document.getElementById('loading-view').style.display = 'none';
+    document.getElementById('error-view').style.display = 'block';
+    document.getElementById('err-msg').textContent = 'Geçersiz bağlantı. Lütfen e-postanızdaki bağlantıyı kullanın.';
+    return;
+  }
+  try {
+    const r = await fetch('/api/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const data = await r.json();
+    document.getElementById('loading-view').style.display = 'none';
+    if (r.ok) {
+      document.getElementById('success-view').style.display = 'block';
+    } else {
+      document.getElementById('error-view').style.display = 'block';
+      document.getElementById('err-msg').textContent = data.error || 'Bir hata oluştu.';
+    }
+  } catch {
+    document.getElementById('loading-view').style.display = 'none';
+    document.getElementById('error-view').style.display = 'block';
+    document.getElementById('err-msg').textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
+  }
+})();
+</script>
+</body>
+</html>

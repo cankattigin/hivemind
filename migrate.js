@@ -21,6 +21,18 @@ const migrations = [
   "ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name text",
   "ALTER TABLE memberships ADD COLUMN IF NOT EXISTS status text default 'active'",
   "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS needs_reassignment boolean default false",
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS email text",
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean DEFAULT false",
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at timestamptz",
+  `CREATE TABLE IF NOT EXISTS reset_tokens (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token text NOT NULL UNIQUE,
+    type text NOT NULL,
+    expires_at timestamptz NOT NULL,
+    used_at timestamptz,
+    created_at timestamptz DEFAULT now()
+  )`,
 ];
 
 async function migrate() {

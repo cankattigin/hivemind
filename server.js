@@ -5,6 +5,9 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +17,68 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+
+// ─── MAIL ─────────────────────────────────────────────
+function createMailer() {
+  if (!process.env.SMTP_HOST) return null;
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_PORT === '465',
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+  });
+}
+
+async function sendMail(to, subject, html) {
+  const t = createMailer();
+  if (!t) { console.log('[mail] SMTP not configured — skipping:', subject); return; }
+  await t.sendMail({ from: process.env.SMTP_FROM || 'Hivemind <noreply@hivemind.app>', to, subject, html });
+}
+
+function passwordResetHtml(token) {
+  const url = `${process.env.APP_URL}/reset-password.html?token=${token}`;
+  return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+  <h2 style="color:#6366f1">🧠 Hivemind</h2>
+  <p>Şifrenizi sıfırlamak için aşağıdaki bağlantıya tıklayın. Bu bağlantı <strong>1 saat</strong> geçerlidir.</p>
+  <p style="margin:24px 0"><a href="${url}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Şifremi Sıfırla</a></p>
+  <p style="color:#666;font-size:12px">Bu isteği siz göndermediyseniz bu e-postayı görmezden gelebilirsiniz.</p>
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+  <p style="color:#999;font-size:11px">Hivemind · Game Production Platform</p>
+  </div>`;
+}
+
+function emailVerifyHtml(token) {
+  const url = `${process.env.APP_URL}/verify-email.html?token=${token}`;
+  return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+  <h2 style="color:#6366f1">🧠 Hivemind</h2>
+  <p>Hesabınızı aktifleştirmek için e-posta adresinizi doğrulayın.</p>
+  <p style="margin:24px 0"><a href="${url}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">E-postamı Doğrula</a></p>
+  <p style="color:#666;font-size:12px">Bu isteği siz göndermediyseniz bu e-postayı görmezden gelebilirsiniz.</p>
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+  <p style="color:#999;font-size:11px">Hivemind · Game Production Platform</p>
+  </div>`;
+}
+
+// ─── PASSWORD RULES (enforced server-side) ─────────────
+function validatePassword(pw) {
+  if (!pw || pw.length < 8) return 'Şifre en az 8 karakter olmalıdır.';
+  if (!/[A-Z]/.test(pw)) return 'Şifre en az bir büyük harf içermelidir.';
+  if (!/[a-z]/.test(pw)) return 'Şifre en az bir küçük harf içermelidir.';
+  if (!/[0-9]/.test(pw)) return 'Şifre en az bir rakam içermelidir.';
+  return null;
+}
+
+// ─── RATE LIMITERS ────────────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 20,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Çok fazla deneme. Lütfen 15 dakika sonra tekrar deneyin.' }
+});
+const emailActionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 5,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Çok fazla istek. Lütfen bir saat sonra tekrar deneyin.' }
+});
 
 app.use((req, res, next) => {
   if (req.path === '/api/upload/icon') return next();
@@ -31,6 +96,13 @@ async function auth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   const user = await getUser(req.session.userId);
   if (user?.status === 'archived') return res.status(403).json({ error: 'Account archived' });
+  if (user?.password_changed_at && req.session.loginAt) {
+    const changedAt = new Date(user.password_changed_at).getTime();
+    if (req.session.loginAt < changedAt) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ error: 'Session expired' });
+    }
+  }
   next();
 }
 
@@ -114,35 +186,126 @@ async function logActivity(projectId, userId, entityId, action, detail) {
 }
 
 // ─── AUTH ─────────────────────────────────────────────
-app.post('/api/auth/register', async (req, res) => {
-  const { username, password, accountType } = req.body;
-  if (!username || !password || !accountType) return res.status(400).json({ error: 'Missing fields' });
+app.post('/api/auth/register', authLimiter, async (req, res) => {
+  const { username, password, accountType, email } = req.body;
+  if (!username || !password || !accountType) return res.status(400).json({ error: 'Eksik alanlar.' });
+  const pwErr = validatePassword(password);
+  if (pwErr) return res.status(400).json({ error: pwErr });
   const { data: existing } = await supabase.from('users').select('id').eq('username', username).single();
-  if (existing) return res.status(400).json({ error: 'Username taken' });
+  if (existing) return res.status(400).json({ error: 'Bu kullanıcı adı zaten alınmış.' });
+  const normalizedEmail = email ? email.toLowerCase().trim() : null;
+  if (normalizedEmail) {
+    const { data: emailTaken } = await supabase.from('users').select('id').eq('email', normalizedEmail).single();
+    if (emailTaken) return res.status(400).json({ error: 'Bu e-posta adresi zaten kullanımda.' });
+  }
   const hash = await bcrypt.hash(password, 10);
-  const user = { id: uuidv4(), username, password: hash, account_type: accountType, created_at: new Date().toISOString() };
+  const user = {
+    id: uuidv4(), username, password: hash, account_type: accountType,
+    email: normalizedEmail, email_verified: false,
+    created_at: new Date().toISOString()
+  };
   const { error } = await supabase.from('users').insert(user);
   if (error) return res.status(500).json({ error: error.message });
   req.session.userId = user.id;
-  res.json({ id: user.id, username: user.username, accountType: user.account_type });
+  req.session.loginAt = Date.now();
+  if (normalizedEmail) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+    await supabase.from('reset_tokens').insert({ user_id: user.id, token, type: 'email_verify', expires_at: expiresAt });
+    sendMail(normalizedEmail, 'Hivemind — E-posta Adresinizi Doğrulayın', emailVerifyHtml(token)).catch(() => {});
+  }
+  res.json({ id: user.id, username: user.username, accountType: user.account_type, emailVerified: false });
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { username, password } = req.body;
   const { data: user } = await supabase.from('users').select('*').eq('username', username).single();
   if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: 'Invalid credentials' });
   if (user.status === 'archived') return res.status(403).json({ error: 'Account archived' });
   req.session.userId = user.id;
-  res.json({ id: user.id, username: user.username, accountType: user.account_type });
+  req.session.loginAt = Date.now();
+  res.json({ id: user.id, username: user.username, accountType: user.account_type, emailVerified: user.email_verified || false });
 });
 
 app.post('/api/auth/logout', (req, res) => { req.session.destroy(); res.json({ ok: true }); });
+
+// Constant minimum response time prevents timing-based email enumeration.
+const MIN_DELAY_MS = 600;
+function withMinDelay(start, res, body) {
+  const wait = Math.max(0, MIN_DELAY_MS - (Date.now() - start));
+  setTimeout(() => res.json(body), wait);
+}
+
+const FORGOT_OK = { message: 'E-posta adresinize şifre sıfırlama bağlantısı gönderdik. Gelen kutunuzu kontrol edin.' };
+
+app.post('/api/auth/forgot-password', emailActionLimiter, async (req, res) => {
+  const start = Date.now();
+  const email = (req.body.email || '').toLowerCase().trim();
+  if (email) {
+    const { data: user } = await supabase.from('users').select('id').eq('email', email).single();
+    if (user) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      await supabase.from('reset_tokens').insert({ user_id: user.id, token, type: 'password_reset', expires_at: expiresAt });
+      sendMail(email, 'Hivemind — Şifre Sıfırlama', passwordResetHtml(token)).catch(() => {});
+    }
+  }
+  withMinDelay(start, res, FORGOT_OK);
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Eksik alanlar.' });
+  const pwErr = validatePassword(password);
+  if (pwErr) return res.status(400).json({ error: pwErr });
+  const { data: rec } = await supabase.from('reset_tokens')
+    .select('*').eq('token', token).eq('type', 'password_reset').single();
+  if (!rec) return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş bağlantı.' });
+  if (rec.used_at) return res.status(400).json({ error: 'Bu bağlantı daha önce kullanılmış.' });
+  if (new Date(rec.expires_at) < new Date()) return res.status(400).json({ error: 'Bağlantının süresi dolmuş. Yeni bir sıfırlama isteği oluşturun.' });
+  const hash = await bcrypt.hash(password, 10);
+  const now = new Date().toISOString();
+  await supabase.from('users').update({ password: hash, password_changed_at: now }).eq('id', rec.user_id);
+  await supabase.from('reset_tokens').update({ used_at: now }).eq('id', rec.id);
+  res.json({ message: 'Şifreniz başarıyla güncellendi. Şimdi giriş yapabilirsiniz.' });
+});
+
+app.post('/api/auth/verify-email', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Eksik token.' });
+  const { data: rec } = await supabase.from('reset_tokens')
+    .select('*').eq('token', token).eq('type', 'email_verify').single();
+  if (!rec) return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş bağlantı.' });
+  if (rec.used_at) return res.status(400).json({ error: 'Bu bağlantı daha önce kullanılmış.' });
+  if (new Date(rec.expires_at) < new Date()) return res.status(400).json({ error: 'Doğrulama bağlantısının süresi dolmuş. Yeni bir doğrulama e-postası isteyin.' });
+  const now = new Date().toISOString();
+  await supabase.from('users').update({ email_verified: true }).eq('id', rec.user_id);
+  await supabase.from('reset_tokens').update({ used_at: now }).eq('id', rec.id);
+  res.json({ message: 'E-posta adresiniz başarıyla doğrulandı.' });
+});
+
+const RESEND_OK = { message: 'E-posta adresinize doğrulama bağlantısı gönderdik.' };
+
+app.post('/api/auth/resend-verification', emailActionLimiter, async (req, res) => {
+  const start = Date.now();
+  const email = (req.body.email || '').toLowerCase().trim();
+  if (email) {
+    const { data: user } = await supabase.from('users').select('id, email_verified').eq('email', email).single();
+    if (user && !user.email_verified) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+      await supabase.from('reset_tokens').insert({ user_id: user.id, token, type: 'email_verify', expires_at: expiresAt });
+      sendMail(email, 'Hivemind — E-posta Adresinizi Doğrulayın', emailVerifyHtml(token)).catch(() => {});
+    }
+  }
+  withMinDelay(start, res, RESEND_OK);
+});
 
 app.get('/api/auth/me', async (req, res) => {
   if (!req.session.userId) return res.json(null);
   const user = await getUser(req.session.userId);
   if (!user) return res.json(null);
-  res.json({ id: user.id, username: user.username, accountType: user.account_type });
+  res.json({ id: user.id, username: user.username, accountType: user.account_type, emailVerified: user.email_verified || false });
 });
 
 app.get('/api/users', auth, async (req, res) => {
