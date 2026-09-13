@@ -1,7 +1,7 @@
-# HIVEMIND — Project Document
+# HIVEMIND SYNAPSE — Project Document
 
 > Game Production Platform. Keep this file updated whenever a significant change is made.
-> Last updated: 2026-05-26
+> Last updated: 2026-09-13
 
 ---
 
@@ -71,7 +71,6 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 | permissions | jsonb | per-role permission overrides `{}` |
 | departments | jsonb | array of dept strings |
 | roles | jsonb | array of role strings available in project |
-| pipeline_templates | jsonb | unused legacy column |
 
 ### `memberships`
 | Column | Type | Notes |
@@ -79,10 +78,10 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 | id | uuid | PK |
 | user_id | uuid | FK → users |
 | project_id | uuid | FK → projects |
-| role | text | legacy single role string (kept in sync with tiers) |
-| roles | jsonb | legacy roles array (kept for backward compat) |
-| tiers | jsonb | **authoritative** — array of permission tiers e.g. `["member"]`, `["designer","lead"]` |
-| job_title | text | display-only label e.g. "Prop Artist", "Game Designer" |
+| role | text | `team_member`, `designer`, or `director` |
+| is_lead | boolean | dept-scoped task assignment — can assign tasks within own department |
+| is_manager | boolean | unrestricted task assignment — can assign tasks to any department |
+| job_title | text | display-only label e.g. "Prop Artist" |
 | department | text | art / design / programming / qa / audio / production |
 | status | text | `active`, `removed` (from this project), `archived` (company-wide) |
 | joined_at | timestamptz | |
@@ -206,24 +205,30 @@ DATABASE_URL=postgresql://postgres:[PW]@db.cfavismisghsohlumqmu.supabase.co:5432
 
 ### Account types (on `users.account_type`)
 - **director** — full access to everything, manages team, cannot be overridden
-- **employee** — project access determined by membership tiers
+- **employee** — project access determined by membership role + flags
 
-### Permission Tiers (on `memberships.tiers[]`, combinable)
+### Role (on `memberships.role`)
 
-| Tier | Content Creation | Assign Tasks | Approve Reviews | Manage Team |
-|---|:---:|:---:|:---:|:---:|
-| `member` | ❌ | Self only | ❌ | ❌ |
-| `designer` | ✅ Classes + Elements | Self only | ❌ | ❌ |
-| `lead` | ❌ | Own dept only | Own dept only | ❌ |
-| `designer` + `lead` | ✅ | Own dept only | Own dept only | ❌ |
-| `manager` | ❌ | Any dept | Any dept | ✅ |
-| director | ✅ | Anyone | Anyone | ✅ |
+| Role | Data Entry | Notes |
+|---|:---:|---|
+| `team_member` | ❌ | Read + comment only |
+| `designer` | ✅ | Can create/edit Classes, Subclasses, Elements, Tags |
+| `director` | ✅ | Full access (set automatically for account_type = director) |
+
+### Assignment flags (independent of role, combinable)
+
+| Flag | Task Assignment Scope |
+|---|---|
+| `is_lead = true` | Own department only |
+| `is_manager = true` | Any department |
+| Both false | Self-assign only |
 
 **Rules:**
-- `lead` is always department-scoped — Lead Artist cannot assign to Programmers
-- `designer` + `lead` in dept `design` = Design Lead (content rights + dept task assignment)
-- `manager` overrides all leads but has zero content creation rights
-- Self-assign is allowed for everyone but still goes to `in_review` requiring lead/manager/director approval
+- `is_lead` and `is_manager` are independent booleans — do not collapse into an ordered enum
+- `is_lead` is always department-scoped — a Lead Artist cannot assign to Programmers
+- `is_manager` overrides department scope entirely
+- A `director` (account_type or role) can assign to anyone regardless of flags
+- Self-assign is always allowed for all roles
 - Everyone can read and comment freely
 
 ### Membership Status
@@ -255,7 +260,7 @@ Stored as `entity_types.detail_blocks` JSONB array. Each block:
 | `whiteboard` | Excalidraw scene JSON string | Lazy-loads React 17 + Excalidraw 0.17.6 from CDN, resizable (default 1000px), drag handle to resize, saves with 2s debounce |
 | `image` | public URL string | Uploaded via `/api/upload/icon`, optional caption |
 
-Only `designer` tier or director can add/edit blocks.
+Only `designer` role or director can add/edit blocks.
 
 ---
 
@@ -271,14 +276,15 @@ Only `designer` tier or director can add/edit blocks.
 
 ### Projects
 - Directors create projects (auto-generates invite code)
-- Employees join via invite code (start as `pending`/`viewer`)
+- Employees join via invite code (start as `team_member`)
 - Project settings: rename, regenerate invite code
 
 ### Team Management
-- View all members with role, job title, department, tiers
+- View all members with role, job title, department, lead/manager flags
 - **Display Name** — director can set a display name per person (falls back to username)
 - **Job Title** — free text label (e.g. "Prop Artist")
-- **Tiers** — multi-select checkbox picker (member / designer / lead / manager)
+- **Role** — `team_member` or `designer` (directors always `director`)
+- **Lead / Manager** — independent checkboxes per member
 - **Remove from Project** — revokes project access, flags their tasks ⚠️
 - **Archive (Company)** — locks account entirely, all projects, blocks login, name shows as `Name 💀`
 - **Restore** — director can un-archive or re-add to project
@@ -306,12 +312,17 @@ Only `designer` tier or director can add/edit blocks.
 - "Apply template" dropdown in Class/Subclass edit modal
 
 ### Tasks
-- Self-assign allowed for everyone (goes to in_review)
-- Leads assign tasks within their department only
-- Managers/directors assign across any department
+- Self-assign allowed for everyone
+- Leads assign tasks within their department only (`is_lead`)
+- Managers assign across any department (`is_manager`)
+- Directors assign to anyone
 - Task statuses: `not_started`, `in_progress`, `in_review`, `done`, `blocked`
 - **⚠️ Needs Reassignment** — tasks flagged when assignee is removed/archived, sorted to top of task lists
 - Review queue scoped by department for leads
+
+### Real-time Updates
+- Live sync via Supabase Realtime on all 5 tables: `entities`, `tasks`, `entity_types`, `memberships`, `comments`
+- Membership changes update permission UI instantly without page reload
 
 ### Comments
 - Threaded replies (↩ Reply inline, indented below parent)
@@ -343,19 +354,18 @@ Only `designer` tier or director can add/edit blocks.
 
 ---
 
-## Pending / Known Issues
+## Pending
 
-- [ ] **Excalidraw** — CDN loading is fragile (React 17 + Excalidraw 0.17.6). If whiteboard block shows error, check browser console. Needs user confirmation it's working reliably.
-- [ ] **Railway auto-deploy** — was broken (no webhook), manually fixed by reconnecting `cankattigin/hivemind` master via Railway GraphQL API. Monitor to confirm future pushes auto-deploy.
-- [x] Real-time updates — entities, tasks, entity_types, memberships, comments all live-sync via Supabase Realtime
-- [ ] Element bulk actions (bulk status change, bulk assign)
-- [ ] Export (CSV / spreadsheet)
-- [ ] Role-based permissions editor UI (`permissions` JSONB column exists, no UI built)
-- [x] Password reset (forgot-password email flow) + account settings (change password, change email)
-- [ ] Audit trail page (activity API exists, no dedicated page)
-- [ ] Mobile layout
-- [ ] Notification system (task assigned, status changes)
-- [ ] `pipeline_templates` column on projects is unused legacy — can be cleaned up
+- [ ] **In-app notifications** — task assigned, status changes (highest priority)
+- [ ] **Audit trail page** — activity API exists at `/api/projects/:id/activity`, needs a dedicated UI page
+- [ ] **Bulk actions** — bulk status change, bulk assign on Elements list
+- [ ] **CSV export** — producer-facing spreadsheet export
+- [ ] **Mobile layout** — high effort, polish phase
+- [ ] **Permissions editor UI** — `permissions` JSONB column exists on projects, no UI built
+- [ ] **Change request flow** — when `team_member` tries to edit data, edits become change requests for director/designer approval
+- [ ] **Email noreply** — create `noreply@gamegine.games` account for cleaner outbound mail
+- [ ] **Excalidraw stability** — CDN loading is fragile (React 17 + 0.17.6); needs confirmation it's reliable in production
+- [ ] **`pipeline_templates` column** — unused legacy column on `projects`, can be dropped
 
 ---
 
@@ -366,12 +376,13 @@ Only `designer` tier or director can add/edit blocks.
 | Single `public/index.html` | No build step, simple deploy |
 | Supabase service key server-side | Avoids RLS complexity; server enforces all auth |
 | Pipeline templates in `projects.pipelines.templates` | No extra table needed |
-| `tiers[]` array separate from `role` string | `role` kept for legacy; `tiers` is authoritative for permissions |
+| `role` + `is_lead` + `is_manager` as separate fields | Two independent permission axes — data entry vs. task assignment — must not collapse into a single ordered enum |
 | `users.status` for company-wide archive | Membership-level removal is per-project; user-level archive blocks login entirely |
 | `display_name` on users, not memberships | Display name is company-wide identity, not per-project |
 | Excalidraw via CDN (React 17 + 0.17.6) | No bundler — must use UMD builds; React 17 chosen for Excalidraw peer-dep compatibility |
 | Migrations via Supabase SQL editor | `pg` + `DATABASE_URL` works locally but Railway injects its own DB URL; Supabase browser API is the most reliable migration path |
 | DB = snake_case, JS = camelCase | Supabase convention; mapped at API response boundary |
+| All user-facing strings in Turkish | Matches tone and style of the existing UI |
 
 ---
 
@@ -386,8 +397,8 @@ git push
 ```
 
 ### Adding a new DB column
-1. Add `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...` to `migrate.js`
-2. Run it via Supabase SQL Editor (preferred), or `node migrate.js` with `DATABASE_URL` in `.env`
+1. Write `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...` SQL
+2. Run it via Supabase SQL Editor (preferred)
 3. Commit and push
 
 ### If Railway stops auto-deploying
