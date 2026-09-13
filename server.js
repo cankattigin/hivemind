@@ -39,9 +39,9 @@ function passwordResetHtml(token) {
   const url = `${process.env.APP_URL}/reset-password.html?token=${token}`;
   return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
   <h2 style="color:#6366f1">🧠 Hivemind</h2>
-  <p>Şifrenizi sıfırlamak için aşağıdaki bağlantıya tıklayın. Bu bağlantı <strong>1 saat</strong> geçerlidir.</p>
-  <p style="margin:24px 0"><a href="${url}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Şifremi Sıfırla</a></p>
-  <p style="color:#666;font-size:12px">Bu isteği siz göndermediyseniz bu e-postayı görmezden gelebilirsiniz.</p>
+  <p>Click the link below to reset your password. This link is valid for <strong>1 hour</strong>.</p>
+  <p style="margin:24px 0"><a href="${url}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Reset My Password</a></p>
+  <p style="color:#666;font-size:12px">If you did not request this, you can safely ignore this email.</p>
   <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
   <p style="color:#999;font-size:11px">Hivemind · Game Production Platform</p>
   </div>`;
@@ -51,9 +51,9 @@ function emailVerifyHtml(token) {
   const url = `${process.env.APP_URL}/verify-email.html?token=${token}`;
   return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
   <h2 style="color:#6366f1">🧠 Hivemind</h2>
-  <p>Hesabınızı aktifleştirmek için e-posta adresinizi doğrulayın.</p>
-  <p style="margin:24px 0"><a href="${url}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">E-postamı Doğrula</a></p>
-  <p style="color:#666;font-size:12px">Bu isteği siz göndermediyseniz bu e-postayı görmezden gelebilirsiniz.</p>
+  <p>Verify your email address to activate your account.</p>
+  <p style="margin:24px 0"><a href="${url}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Verify My Email</a></p>
+  <p style="color:#666;font-size:12px">If you did not request this, you can safely ignore this email.</p>
   <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
   <p style="color:#999;font-size:11px">Hivemind · Game Production Platform</p>
   </div>`;
@@ -61,10 +61,10 @@ function emailVerifyHtml(token) {
 
 // ─── PASSWORD RULES (enforced server-side) ─────────────
 function validatePassword(pw) {
-  if (!pw || pw.length < 8) return 'Şifre en az 8 karakter olmalıdır.';
-  if (!/[A-Z]/.test(pw)) return 'Şifre en az bir büyük harf içermelidir.';
-  if (!/[a-z]/.test(pw)) return 'Şifre en az bir küçük harf içermelidir.';
-  if (!/[0-9]/.test(pw)) return 'Şifre en az bir rakam içermelidir.';
+  if (!pw || pw.length < 8) return 'Password must be at least 8 characters.';
+  if (!/[A-Z]/.test(pw)) return 'Password must contain at least one uppercase letter.';
+  if (!/[a-z]/.test(pw)) return 'Password must contain at least one lowercase letter.';
+  if (!/[0-9]/.test(pw)) return 'Password must contain at least one number.';
   return null;
 }
 
@@ -72,12 +72,12 @@ function validatePassword(pw) {
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, max: 20,
   standardHeaders: true, legacyHeaders: false,
-  message: { error: 'Çok fazla deneme. Lütfen 15 dakika sonra tekrar deneyin.' }
+  message: { error: 'Too many attempts. Please try again in 15 minutes.' }
 });
 const emailActionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, max: 5,
   standardHeaders: true, legacyHeaders: false,
-  message: { error: 'Çok fazla istek. Lütfen bir saat sonra tekrar deneyin.' }
+  message: { error: 'Too many requests. Please try again in one hour.' }
 });
 
 app.use((req, res, next) => {
@@ -178,11 +178,11 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
   const pwErr = validatePassword(password);
   if (pwErr) return res.status(400).json({ error: pwErr });
   const { data: existing } = await supabase.from('users').select('id').eq('username', username).single();
-  if (existing) return res.status(400).json({ error: 'Bu kullanıcı adı zaten alınmış.' });
+  if (existing) return res.status(400).json({ error: 'That username is already taken.' });
   const normalizedEmail = email ? email.toLowerCase().trim() : null;
   if (normalizedEmail) {
     const { data: emailTaken } = await supabase.from('users').select('id').eq('email', normalizedEmail).single();
-    if (emailTaken) return res.status(400).json({ error: 'Bu e-posta adresi zaten kullanımda.' });
+    if (emailTaken) return res.status(400).json({ error: 'That email address is already in use.' });
   }
   const hash = await bcrypt.hash(password, 10);
   const user = {
@@ -198,7 +198,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
     await supabase.from('reset_tokens').insert({ user_id: user.id, token, type: 'email_verify', expires_at: expiresAt });
-    sendMail(normalizedEmail, 'Hivemind — E-posta Adresinizi Doğrulayın', emailVerifyHtml(token)).catch(() => {});
+    sendMail(normalizedEmail, 'Hivemind — Verify Your Email', emailVerifyHtml(token)).catch(() => {});
   }
   res.json({ id: user.id, username: user.username, accountType: user.account_type, email: normalizedEmail, emailVerified: false });
 });
@@ -222,7 +222,7 @@ function withMinDelay(start, res, body) {
   setTimeout(() => res.json(body), wait);
 }
 
-const FORGOT_OK = { message: 'E-posta adresinize şifre sıfırlama bağlantısı gönderdik. Gelen kutunuzu kontrol edin.' };
+const FORGOT_OK = { message: 'If that email exists in our system, a password reset link has been sent.' };
 
 app.post('/api/auth/forgot-password', emailActionLimiter, async (req, res) => {
   const start = Date.now();
@@ -233,7 +233,7 @@ app.post('/api/auth/forgot-password', emailActionLimiter, async (req, res) => {
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
       await supabase.from('reset_tokens').insert({ user_id: user.id, token, type: 'password_reset', expires_at: expiresAt });
-      sendMail(email, 'Hivemind — Şifre Sıfırlama', passwordResetHtml(token)).catch(() => {});
+      sendMail(email, 'Hivemind — Password Reset', passwordResetHtml(token)).catch(() => {});
     }
   }
   withMinDelay(start, res, FORGOT_OK);
@@ -246,14 +246,14 @@ app.post('/api/auth/reset-password', async (req, res) => {
   if (pwErr) return res.status(400).json({ error: pwErr });
   const { data: rec } = await supabase.from('reset_tokens')
     .select('*').eq('token', token).eq('type', 'password_reset').single();
-  if (!rec) return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş bağlantı.' });
-  if (rec.used_at) return res.status(400).json({ error: 'Bu bağlantı daha önce kullanılmış.' });
-  if (new Date(rec.expires_at) < new Date()) return res.status(400).json({ error: 'Bağlantının süresi dolmuş. Yeni bir sıfırlama isteği oluşturun.' });
+  if (!rec) return res.status(400).json({ error: 'Invalid or expired link.' });
+  if (rec.used_at) return res.status(400).json({ error: 'This link has already been used.' });
+  if (new Date(rec.expires_at) < new Date()) return res.status(400).json({ error: 'Link expired. Please request a new password reset.' });
   const hash = await bcrypt.hash(password, 10);
   const now = new Date().toISOString();
   await supabase.from('users').update({ password: hash, password_changed_at: now }).eq('id', rec.user_id);
   await supabase.from('reset_tokens').update({ used_at: now }).eq('id', rec.id);
-  res.json({ message: 'Şifreniz başarıyla güncellendi. Şimdi giriş yapabilirsiniz.' });
+  res.json({ message: 'Password updated successfully. You can now log in.' });
 });
 
 app.post('/api/auth/verify-email', async (req, res) => {
@@ -261,16 +261,16 @@ app.post('/api/auth/verify-email', async (req, res) => {
   if (!token) return res.status(400).json({ error: 'Eksik token.' });
   const { data: rec } = await supabase.from('reset_tokens')
     .select('*').eq('token', token).eq('type', 'email_verify').single();
-  if (!rec) return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş bağlantı.' });
-  if (rec.used_at) return res.status(400).json({ error: 'Bu bağlantı daha önce kullanılmış.' });
-  if (new Date(rec.expires_at) < new Date()) return res.status(400).json({ error: 'Doğrulama bağlantısının süresi dolmuş. Yeni bir doğrulama e-postası isteyin.' });
+  if (!rec) return res.status(400).json({ error: 'Invalid or expired link.' });
+  if (rec.used_at) return res.status(400).json({ error: 'This link has already been used.' });
+  if (new Date(rec.expires_at) < new Date()) return res.status(400).json({ error: 'Verification link expired. Please request a new one.' });
   const now = new Date().toISOString();
   await supabase.from('users').update({ email_verified: true }).eq('id', rec.user_id);
   await supabase.from('reset_tokens').update({ used_at: now }).eq('id', rec.id);
-  res.json({ message: 'E-posta adresiniz başarıyla doğrulandı.' });
+  res.json({ message: 'Email address verified successfully.' });
 });
 
-const RESEND_OK = { message: 'E-posta adresinize doğrulama bağlantısı gönderdik.' };
+const RESEND_OK = { message: 'A verification link has been sent to your email.' };
 
 app.post('/api/auth/resend-verification', emailActionLimiter, async (req, res) => {
   const start = Date.now();
@@ -281,7 +281,7 @@ app.post('/api/auth/resend-verification', emailActionLimiter, async (req, res) =
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
       await supabase.from('reset_tokens').insert({ user_id: user.id, token, type: 'email_verify', expires_at: expiresAt });
-      sendMail(email, 'Hivemind — E-posta Adresinizi Doğrulayın', emailVerifyHtml(token)).catch(() => {});
+      sendMail(email, 'Hivemind — Verify Your Email', emailVerifyHtml(token)).catch(() => {});
     }
   }
   withMinDelay(start, res, RESEND_OK);
@@ -300,28 +300,28 @@ app.post('/api/auth/change-password', auth, async (req, res) => {
   const pwErr = validatePassword(newPassword);
   if (pwErr) return res.status(400).json({ error: pwErr });
   const user = await getUser(req.session.userId);
-  if (!user) return res.status(401).json({ error: 'Kullanıcı bulunamadı.' });
+  if (!user) return res.status(401).json({ error: 'User not found.' });
   const match = await bcrypt.compare(currentPassword, user.password);
-  if (!match) return res.status(400).json({ error: 'Mevcut şifre yanlış.' });
+  if (!match) return res.status(400).json({ error: 'Current password is incorrect.' });
   const hash = await bcrypt.hash(newPassword, 10);
   const now = new Date().toISOString();
   await supabase.from('users').update({ password: hash, password_changed_at: now }).eq('id', req.session.userId);
   req.session.loginAt = Date.now();
-  res.json({ message: 'Şifreniz başarıyla güncellendi.' });
+  res.json({ message: 'Password updated successfully.' });
 });
 
 app.post('/api/auth/change-email', auth, async (req, res) => {
   const email = (req.body.email || '').toLowerCase().trim();
-  if (!email) return res.status(400).json({ error: 'E-posta adresi gereklidir.' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Geçersiz e-posta adresi.' });
+  if (!email) return res.status(400).json({ error: 'Email address is required.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email address.' });
   const { data: existing } = await supabase.from('users').select('id').eq('email', email).neq('id', req.session.userId).single();
-  if (existing) return res.status(400).json({ error: 'Bu e-posta adresi zaten kullanımda.' });
+  if (existing) return res.status(400).json({ error: 'That email address is already in use.' });
   await supabase.from('users').update({ email, email_verified: false }).eq('id', req.session.userId);
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
   await supabase.from('reset_tokens').insert({ user_id: req.session.userId, token, type: 'email_verify', expires_at: expiresAt });
-  sendMail(email, 'Hivemind — E-posta Adresinizi Doğrulayın', emailVerifyHtml(token)).catch(() => {});
-  res.json({ message: 'E-posta adresiniz güncellendi. Doğrulama bağlantısı gönderildi.' });
+  sendMail(email, 'Hivemind — Verify Your Email', emailVerifyHtml(token)).catch(() => {});
+  res.json({ message: 'Email updated. A verification link has been sent.' });
 });
 
 app.get('/api/users', auth, async (req, res) => {
@@ -557,7 +557,7 @@ app.get('/api/projects/:pid/entity-types', auth, async (req, res) => {
 
 app.post('/api/projects/:pid/entity-types', auth, async (req, res) => {
   const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   const { data: project } = await supabase.from('projects').select('pipelines').eq('id', req.params.pid).single();
   const pipelines = project?.pipelines || DEFAULT_PIPELINES;
   const category = req.body.category || 'entity';
@@ -579,7 +579,7 @@ app.post('/api/projects/:pid/entity-types', auth, async (req, res) => {
 
 app.put('/api/projects/:pid/entity-types/:id', auth, async (req, res) => {
   const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   const updates = {};
   ['name','category','color','icon','fields','pipeline','detail_blocks'].forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
   const { data, error } = await supabase.from('entity_types').update(updates).eq('id', req.params.id).eq('project_id', req.params.pid).select().single();
@@ -589,7 +589,7 @@ app.put('/api/projects/:pid/entity-types/:id', auth, async (req, res) => {
 
 app.delete('/api/projects/:pid/entity-types/:id', auth, async (req, res) => {
   const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   await supabase.from('entity_types').delete().eq('id', req.params.id).eq('project_id', req.params.pid);
   res.json({ ok: true });
 });
@@ -602,7 +602,7 @@ app.get('/api/projects/:pid/tags', auth, async (req, res) => {
 
 app.post('/api/projects/:pid/tags', auth, async (req, res) => {
   const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   const tag = { id: uuidv4(), project_id: req.params.pid, name: req.body.name, category: req.body.category || 'general', color: req.body.color || '#8b5cf6', description: req.body.description || '', created_at: new Date().toISOString() };
   const { data, error } = await supabase.from('tags').insert(tag).select().single();
   if (error) return res.status(500).json({ error: error.message });
@@ -611,7 +611,7 @@ app.post('/api/projects/:pid/tags', auth, async (req, res) => {
 
 app.put('/api/projects/:pid/tags/:id', auth, async (req, res) => {
   const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   const { data, error } = await supabase.from('tags').update(req.body).eq('id', req.params.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -619,7 +619,7 @@ app.put('/api/projects/:pid/tags/:id', auth, async (req, res) => {
 
 app.delete('/api/projects/:pid/tags/:id', auth, async (req, res) => {
   const { user, membership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(membership, user?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   await supabase.from('tags').delete().eq('id', req.params.id);
   res.json({ ok: true });
 });
@@ -642,7 +642,7 @@ app.get('/api/projects/:pid/entities/:id', auth, async (req, res) => {
 
 app.post('/api/projects/:pid/entities', auth, async (req, res) => {
   const { user: reqUser, membership: reqMembership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   const entity = {
     id: uuidv4(), project_id: req.params.pid,
     name: req.body.name, type_id: req.body.typeId,
@@ -662,7 +662,7 @@ app.post('/api/projects/:pid/entities', auth, async (req, res) => {
 
 app.put('/api/projects/:pid/entities/:id', auth, async (req, res) => {
   const { user: reqUser, membership: reqMembership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   const { data: old } = await supabase.from('entities').select('*').eq('id', req.params.id).single();
   const updates = { ...req.body, updated_at: new Date().toISOString() };
   if (req.body.typeId) { updates.type_id = req.body.typeId; delete updates.typeId; }
@@ -677,7 +677,7 @@ app.put('/api/projects/:pid/entities/:id', auth, async (req, res) => {
 
 app.delete('/api/projects/:pid/entities/:id', auth, async (req, res) => {
   const { user: reqUser, membership: reqMembership } = await getUserMembership(req.session.userId, req.params.pid);
-  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'Veri yazma yetkiniz yok.' });
+  if (!canWriteData(reqMembership, reqUser?.account_type)) return res.status(403).json({ error: 'You do not have permission to write data.' });
   await supabase.from('entities').delete().eq('id', req.params.id).eq('project_id', req.params.pid);
   res.json({ ok: true });
 });
@@ -730,7 +730,7 @@ app.post('/api/projects/:pid/tasks', auth, async (req, res) => {
   const taskDept = req.body.dept || '';
 
   if (!isSelfAssign && !canAssignToDept(membership, user?.account_type, taskDept)) {
-    return res.status(403).json({ error: 'Bu departmana görev atama yetkiniz yok.' });
+    return res.status(403).json({ error: 'You do not have permission to assign tasks to this department.' });
   }
 
   await supabase.from('tasks').delete().eq('entity_id', req.body.entityId).eq('step_id', req.body.stepId).eq('project_id', req.params.pid);
@@ -744,7 +744,7 @@ app.post('/api/projects/:pid/tasks', auth, async (req, res) => {
     const assigner = user;
     createNotification(
       req.body.assigneeId, req.params.pid, 'task_assigned',
-      `${getDisplayName(assigner)} sana "${req.body.stepName}" görevini atadı — ${entity?.name || ''}`,
+      `${getDisplayName(assigner)} assigned you "${req.body.stepName}" — ${entity?.name || ''}`,
       req.body.entityId, data.id
     );
   }
@@ -758,14 +758,14 @@ app.put('/api/projects/:pid/tasks/:id', auth, async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   if (old && req.body.status && req.body.status !== old.status) {
     logActivity(req.params.pid, req.session.userId, old.entity_id, 'task_status', `${old.step_name}: ${old.status} → ${req.body.status}`);
-    const STATUS_TR = { not_started: 'Başlanmadı', in_progress: 'Devam Ediyor', in_review: 'İncelemede', done: 'Tamamlandı', blocked: 'Engellendi' };
+    const STATUS_LABELS = { not_started: 'Not Started', in_progress: 'In Progress', in_review: 'In Review', done: 'Done', blocked: 'Blocked' };
     const { data: entity } = await supabase.from('entities').select('name').eq('id', old.entity_id).single();
     const updater = await getUser(req.session.userId);
     // notify assignee when someone else changes their task status
     if (old.assignee_id && old.assignee_id !== req.session.userId) {
       createNotification(
         old.assignee_id, req.params.pid, 'task_status',
-        `${getDisplayName(updater)}: "${old.step_name}" durumu ${STATUS_TR[req.body.status] || req.body.status} olarak güncellendi — ${entity?.name || ''}`,
+        `${getDisplayName(updater)} updated "${old.step_name}" to ${STATUS_LABELS[req.body.status] || req.body.status} — ${entity?.name || ''}`,
         old.entity_id, old.id
       );
     }
@@ -773,7 +773,7 @@ app.put('/api/projects/:pid/tasks/:id', auth, async (req, res) => {
     if (req.body.status === 'in_review' && old.assigned_by && old.assigned_by !== req.session.userId) {
       createNotification(
         old.assigned_by, req.params.pid, 'task_review',
-        `${getDisplayName(updater)}: "${old.step_name}" görevi incelemeye gönderildi — ${entity?.name || ''}`,
+        `${getDisplayName(updater)} sent "${old.step_name}" for review — ${entity?.name || ''}`,
         old.entity_id, old.id
       );
     }

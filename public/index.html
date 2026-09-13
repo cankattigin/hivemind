@@ -291,43 +291,43 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
       <div class="auth-tab" onclick="authTab('register')">Register</div>
     </div>
     <div id="pane-login">
-      <div class="form-group"><label class="form-label">Kullanıcı Adı</label><input id="l-user" placeholder="Kullanıcı adı" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <div class="form-group"><label class="form-label">Şifre</label><input id="l-pass" type="password" placeholder="Şifre" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="doLogin()">Giriş Yap</button>
+      <div class="form-group"><label class="form-label">Username</label><input id="l-user" placeholder="Username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="form-group"><label class="form-label">Password</label><input id="l-pass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="doLogin()">Sign in</button>
       <p id="l-err" style="color:var(--red);font-size:12px;margin-top:8px;text-align:center"></p>
-      <p style="text-align:center;margin-top:12px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:12px;color:var(--text3);text-decoration:none" onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">Şifremi unuttum</a></p>
+      <p style="text-align:center;margin-top:12px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:12px;color:var(--text3);text-decoration:none" onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">Forgot password</a></p>
     </div>
     <div id="pane-forgot" style="display:none">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">E-posta adresinizi girin, şifre sıfırlama bağlantısı gönderelim.</p>
-      <div class="form-group"><label class="form-label">E-posta</label><input id="f-email" type="email" placeholder="ornek@mail.com" onkeydown="if(event.key==='Enter')doForgotPassword()"></div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doForgotPassword()">Sıfırlama Bağlantısı Gönder</button>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Enter your email and we'll send you a password reset link.</p>
+      <div class="form-group"><label class="form-label">Email</label><input id="f-email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doForgotPassword()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doForgotPassword()">Send Reset Link</button>
       <p id="f-msg" style="font-size:12px;margin-top:8px;text-align:center"></p>
-      <p style="text-align:center;margin-top:12px"><a href="#" onclick="showLoginPane();return false;" style="font-size:12px;color:var(--text3);text-decoration:none">← Geri dön</a></p>
+      <p style="text-align:center;margin-top:12px"><a href="#" onclick="showLoginPane();return false;" style="font-size:12px;color:var(--text3);text-decoration:none">← Back</a></p>
     </div>
     <div id="pane-register" style="display:none">
-      <div class="form-group"><label class="form-label">Kullanıcı Adı</label><input id="r-user" placeholder="Kullanıcı adı seçin"></div>
-      <div class="form-group"><label class="form-label">E-posta <span style="color:var(--text3);font-weight:400">(isteğe bağlı)</span></label><input id="r-email" type="email" placeholder="ornek@mail.com"></div>
-      <div class="form-group"><label class="form-label">Şifre</label><input id="r-pass" type="password" placeholder="Şifre seçin (en az 8 karakter)"></div>
+      <div class="form-group"><label class="form-label">Username</label><input id="r-user" placeholder="Choose a username"></div>
+      <div class="form-group"><label class="form-label">Email <span style="color:var(--text3);font-weight:400">(optional)</span></label><input id="r-email" type="email" placeholder="you@example.com"></div>
+      <div class="form-group"><label class="form-label">Password</label><input id="r-pass" type="password" placeholder="Choose a password (min 8 characters)"></div>
       <div class="form-group">
-        <label class="form-label">Ben...</label>
+        <label class="form-label">I am a...</label>
         <div class="auth-type-grid">
           <div class="auth-type-btn on" id="at-director" onclick="selectAccountType('director')">
-            <div class="atb-icon">👑</div><div class="atb-label">Game Director</div><div class="atb-desc">Proje oluşturur ve yönetirim</div>
+            <div class="atb-icon">👑</div><div class="atb-label">Game Director</div><div class="atb-desc">I create and manage projects</div>
           </div>
           <div class="auth-type-btn" id="at-member" onclick="selectAccountType('member')">
-            <div class="atb-icon">🎮</div><div class="atb-label">Team Member</div><div class="atb-desc">Mevcut bir projeye katılırım</div>
+            <div class="atb-icon">🎮</div><div class="atb-label">Team Member</div><div class="atb-desc">I join an existing project</div>
           </div>
         </div>
       </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doRegister()">Hesap Oluştur</button>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doRegister()">Create Account</button>
       <p id="r-err" style="color:var(--red);font-size:12px;margin-top:8px;text-align:center"></p>
     </div>
   </div>
 </div>
 
 <div id="email-banner" style="display:none;background:#2a1f0a;border-bottom:1px solid #3d2e0a;padding:10px 20px;font-size:13px;color:#f59e0b;display:none;align-items:center;gap:10px">
-  <span>⚠️ E-posta adresiniz henüz doğrulanmamış.</span>
-  <button onclick="resendVerification()" style="background:none;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Tekrar Gönder</button>
+  <span>⚠️ Your email address has not been verified yet.</span>
+  <button onclick="resendVerification()" style="background:none;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Resend</button>
   <span id="banner-msg" style="font-size:12px"></span>
 </div>
 
@@ -387,8 +387,8 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
       <div class="user-chip">
         <div class="avatar" id="sb-avatar">?</div>
         <div class="user-meta"><div class="user-name" id="sb-username">...</div><div class="user-role" id="sb-role">...</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="openAccountSettings()" title="Hesap Ayarları" style="padding:4px 6px;margin-left:4px">⚙️</button>
-        <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="Çıkış" style="padding:4px 6px;margin-left:2px">↩</button>
+        <button class="btn btn-ghost btn-sm" onclick="openAccountSettings()" title="Account Settings" style="padding:4px 6px;margin-left:4px">⚙️</button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="Sign out" style="padding:4px 6px;margin-left:2px">↩</button>
       </div>
     </div>
   </div>
@@ -397,15 +397,15 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
     <div id="topbar">
       <div id="topbar-title">Dashboard</div>
       <div id="topbar-actions"></div>
-      <button id="notif-btn" onclick="toggleNotifPanel()" title="Bildirimler">
+      <button id="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
         🔔<span id="notif-badge" hidden></span>
       </button>
       <div id="notif-panel">
         <div id="notif-panel-header">
-          <span>Bildirimler</span>
-          <button class="btn" style="font-size:11px;padding:3px 8px" onclick="markAllNotifsRead()">Tümünü okundu işaretle</button>
+          <span>Notifications</span>
+          <button class="btn" style="font-size:11px;padding:3px 8px" onclick="markAllNotifsRead()">Mark all read</button>
         </div>
-        <div id="notif-list"><div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Bildirim yok</div></div>
+        <div id="notif-list"><div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">No notifications</div></div>
       </div>
       <div id="rt-indicator" title="Realtime" style="display:none;align-items:center;gap:5px;font-size:11px;color:var(--text3);margin-right:4px">
         <span id="rt-dot" style="width:7px;height:7px;border-radius:50%;background:#6b7280;display:inline-block;flex-shrink:0"></span>
@@ -553,33 +553,33 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
         </div>
         <div class="card" style="margin-bottom:14px;padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <select id="audit-filter-user" onchange="renderAudit()" style="font-size:12px;padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text)">
-            <option value="">Tüm üyeler</option>
+            <option value="">All members</option>
           </select>
           <select id="audit-filter-action" onchange="renderAudit()" style="font-size:12px;padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text)">
-            <option value="">Tüm eylemler</option>
-            <option value="created">Oluşturuldu</option>
-            <option value="status">Durum değişikliği</option>
-            <option value="environment">Ortam değişikliği</option>
-            <option value="task_assigned">Görev atandı</option>
-            <option value="task_status">Görev durumu</option>
+            <option value="">All actions</option>
+            <option value="created">Created</option>
+            <option value="status">Status change</option>
+            <option value="environment">Environment change</option>
+            <option value="task_assigned">Task assigned</option>
+            <option value="task_status">Task status</option>
           </select>
-          <button class="btn" onclick="renderAudit()" style="font-size:12px;padding:4px 10px">Yenile</button>
+          <button class="btn" onclick="renderAudit()" style="font-size:12px;padding:4px 10px">Refresh</button>
           <span id="audit-count" style="font-size:11px;color:var(--text3);margin-left:auto"></span>
         </div>
         <div class="card" style="padding:0;overflow:hidden">
           <table class="tbl" style="width:100%">
             <thead><tr>
-              <th style="width:140px">Zaman</th>
-              <th style="width:120px">Kullanıcı</th>
-              <th style="width:110px">Eylem</th>
-              <th>Detay</th>
+              <th style="width:140px">Time</th>
+              <th style="width:120px">User</th>
+              <th style="width:110px">Action</th>
+              <th>Detail</th>
               <th style="width:160px">Element</th>
             </tr></thead>
             <tbody id="audit-tbody"></tbody>
           </table>
-          <div id="audit-empty" style="padding:40px;text-align:center;color:var(--text3);font-size:13px;display:none">Kayıt bulunamadı.</div>
+          <div id="audit-empty" style="padding:40px;text-align:center;color:var(--text3);font-size:13px;display:none">No records found.</div>
           <div id="audit-load-more" style="display:none;padding:12px;text-align:center">
-            <button class="btn" onclick="loadMoreAudit()">Daha fazla yükle</button>
+            <button class="btn" onclick="loadMoreAudit()">Load more</button>
           </div>
         </div>
       </div>
@@ -679,7 +679,7 @@ function renderNotifications(notifs) {
     badge.hidden = true;
   }
   if (!notifs || notifs.length === 0) {
-    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Bildirim yok</div>';
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">No notifications</div>';
     return;
   }
   list.innerHTML = notifs.map(n => `
@@ -705,11 +705,11 @@ async function markAllNotifsRead() {
 function timeAgo(iso) {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return 'az önce';
-  if (m < 60) return `${m}dk önce`;
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}sa önce`;
-  return `${Math.floor(h / 24)}g önce`;
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 function escHtml(s) {
@@ -1053,7 +1053,7 @@ async function doForgotPassword() {
   const email = v('f-email');
   const msgEl = document.getElementById('f-msg');
   msgEl.style.color = 'var(--text2)';
-  msgEl.textContent = 'Gönderiliyor...';
+  msgEl.textContent = 'Sending...';
   const res = await api('POST','/api/auth/forgot-password',{email});
   msgEl.style.color = res.error ? 'var(--red)' : 'var(--green)';
   msgEl.textContent = res.error || res.message || '';
@@ -1066,9 +1066,9 @@ async function doRegister() {
 }
 async function resendVerification() {
   const msgEl = document.getElementById('banner-msg');
-  msgEl.textContent = 'Gönderiliyor...';
+  msgEl.textContent = 'Sending...';
   const user = await api('GET','/api/auth/me');
-  if (!user || !user.email) { msgEl.textContent = 'E-posta adresi bulunamadı.'; return; }
+  if (!user || !user.email) { msgEl.textContent = 'No email address on file.'; return; }
   const res = await api('POST','/api/auth/resend-verification',{email:user.email});
   msgEl.textContent = res.message || res.error || '';
 }
@@ -2939,11 +2939,11 @@ let _auditTotal = 0;
 let _auditItems = [];
 
 const ACTION_TR = {
-  created: 'Oluşturuldu',
-  status: 'Durum',
-  environment: 'Ortam',
-  task_assigned: 'Görev Atandı',
-  task_status: 'Görev Durumu'
+  created: 'Created',
+  status: 'Status',
+  environment: 'Environment',
+  task_assigned: 'Task Assigned',
+  task_status: 'Task Status'
 };
 const ACTION_COLOR = {
   created: 'var(--green)',
@@ -2975,7 +2975,7 @@ async function initAudit() {
 async function renderAudit() {
   _auditOffset = 0;
   _auditItems = [];
-  document.getElementById('audit-tbody').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3)">Yükleniyor…</td></tr>';
+  document.getElementById('audit-tbody').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3)">Loading…</td></tr>';
   await fetchAuditPage();
 }
 
@@ -3002,7 +3002,7 @@ function drawAuditTable() {
   const more = document.getElementById('audit-load-more');
   const countEl = document.getElementById('audit-count');
 
-  countEl.textContent = `${_auditTotal} kayıt`;
+  countEl.textContent = `${_auditTotal} records`;
 
   if (_auditItems.length === 0) {
     tbody.innerHTML = '';
@@ -3019,7 +3019,7 @@ function drawAuditTable() {
     const entity = entityMap[a.entity_id];
     const entityCell = entity
       ? `<span style="cursor:pointer;color:var(--accent2)" onclick="openEntityView('${entity.id}')">${escHtml(entity.name)}</span>`
-      : (a.entity_id ? '<span style="color:var(--text3)">Silindi</span>' : '—');
+      : (a.entity_id ? '<span style="color:var(--text3)">Deleted</span>' : '—');
     const actionLabel = ACTION_TR[a.action] || a.action;
     const actionColor = ACTION_COLOR[a.action] || 'var(--text3)';
     return `<tr>
@@ -3611,8 +3611,8 @@ function openAccountSettings() {
   document.getElementById('acc-username').textContent = u.username;
   document.getElementById('acc-type').textContent = u.accountType === 'director' ? 'Director' : 'Employee';
   const emailLine = u.email
-    ? (u.emailVerified ? `✅ ${u.email}` : `⚠️ ${u.email} — doğrulanmamış`)
-    : 'E-posta ayarlanmamış';
+    ? (u.emailVerified ? `✅ ${u.email}` : `⚠️ ${u.email} — unverified`)
+    : 'No email set';
   document.getElementById('acc-email-status').textContent = emailLine;
   document.getElementById('acc-email').value = u.email || '';
   ['acc-cur-pw','acc-new-pw','acc-new-pw2'].forEach(id => document.getElementById(id).value = '');
@@ -3634,12 +3634,12 @@ async function doChangePassword() {
   const nw2 = document.getElementById('acc-new-pw2').value;
   const msg = document.getElementById('acc-pw-msg');
   const setMsg = (text,ok) => { msg.style.color=ok?'var(--green)':'var(--red)'; msg.textContent=text; };
-  if (!cur||!nw||!nw2) return setMsg('Tüm alanları doldurun.',false);
-  if (nw !== nw2) return setMsg('Yeni şifreler eşleşmiyor.',false);
+  if (!cur||!nw||!nw2) return setMsg('Please fill in all fields.',false);
+  if (nw !== nw2) return setMsg('New passwords do not match.',false);
   const btn = document.getElementById('acc-pw-btn');
-  btn.disabled=true; btn.textContent='Güncelleniyor...';
+  btn.disabled=true; btn.textContent='Updating...';
   const res = await api('POST','/api/auth/change-password',{currentPassword:cur,newPassword:nw});
-  btn.disabled=false; btn.textContent='Şifreyi Güncelle';
+  btn.disabled=false; btn.textContent='Update Password';
   if (res.error) return setMsg(res.error,false);
   setMsg(res.message,true);
   ['acc-cur-pw','acc-new-pw','acc-new-pw2'].forEach(id=>document.getElementById(id).value='');
@@ -3649,15 +3649,15 @@ async function doChangeEmail() {
   const email = document.getElementById('acc-email').value.trim();
   const msg = document.getElementById('acc-email-msg');
   const setMsg = (text,ok) => { msg.style.color=ok?'var(--green)':'var(--red)'; msg.textContent=text; };
-  if (!email) return setMsg('E-posta adresi gereklidir.',false);
+  if (!email) return setMsg('Email address is required.',false);
   const btn = document.getElementById('acc-email-btn');
-  btn.disabled=true; btn.textContent='Güncelleniyor...';
+  btn.disabled=true; btn.textContent='Updating...';
   const res = await api('POST','/api/auth/change-email',{email});
-  btn.disabled=false; btn.textContent='E-postayı Güncelle';
+  btn.disabled=false; btn.textContent='Update Email';
   if (res.error) return setMsg(res.error,false);
   setMsg(res.message,true);
   S.user.email = email; S.user.emailVerified = false;
-  document.getElementById('acc-email-status').textContent = `⚠️ ${email} — doğrulanmamış`;
+  document.getElementById('acc-email-status').textContent = `⚠️ ${email} — unverified`;
   document.getElementById('email-banner').style.display='flex';
 }
 </script>
@@ -3666,7 +3666,7 @@ async function doChangeEmail() {
 <div id="modal-account" class="overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
   <div class="modal" style="width:460px">
     <div class="modal-hd">
-      <span class="modal-title">Hesap Ayarları</span>
+      <span class="modal-title">Account Settings</span>
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-account').style.display='none'">✕</button>
     </div>
     <div class="modal-bd">
@@ -3680,22 +3680,22 @@ async function doChangeEmail() {
       </div>
 
       <div style="margin-bottom:24px">
-        <div class="card-title">Şifre Değiştir</div>
-        <div class="form-group"><label class="form-label">Mevcut Şifre</label><input id="acc-cur-pw" type="password" placeholder="Mevcut şifreniz"></div>
+        <div class="card-title">Change Password</div>
+        <div class="form-group"><label class="form-label">Current Password</label><input id="acc-cur-pw" type="password" placeholder="Your current password"></div>
         <div class="form-group">
-          <label class="form-label">Yeni Şifre</label>
-          <input id="acc-new-pw" type="password" placeholder="En az 8 karakter, büyük harf ve rakam" oninput="accCheckStrength()">
+          <label class="form-label">New Password</label>
+          <input id="acc-new-pw" type="password" placeholder="Min 8 characters, uppercase and number" oninput="accCheckStrength()">
           <div style="height:3px;border-radius:2px;margin-top:6px;background:var(--bg4)"><div id="acc-sbar" style="height:100%;border-radius:2px;transition:width .3s,background .3s;width:0"></div></div>
         </div>
-        <div class="form-group"><label class="form-label">Yeni Şifre Tekrar</label><input id="acc-new-pw2" type="password" placeholder="Yeni şifrenizi tekrar girin" onkeydown="if(event.key==='Enter')doChangePassword()"></div>
-        <button class="btn btn-primary" id="acc-pw-btn" onclick="doChangePassword()" style="width:100%;justify-content:center">Şifreyi Güncelle</button>
+        <div class="form-group"><label class="form-label">Confirm New Password</label><input id="acc-new-pw2" type="password" placeholder="Repeat your new password" onkeydown="if(event.key==='Enter')doChangePassword()"></div>
+        <button class="btn btn-primary" id="acc-pw-btn" onclick="doChangePassword()" style="width:100%;justify-content:center">Update Password</button>
         <div id="acc-pw-msg" style="margin-top:8px;font-size:12px;text-align:center;min-height:16px"></div>
       </div>
 
       <div>
-        <div class="card-title">E-posta Değiştir</div>
-        <div class="form-group"><label class="form-label">E-posta Adresi</label><input id="acc-email" type="email" placeholder="ornek@alan.com" onkeydown="if(event.key==='Enter')doChangeEmail()"></div>
-        <button class="btn btn-primary" id="acc-email-btn" onclick="doChangeEmail()" style="width:100%;justify-content:center">E-postayı Güncelle</button>
+        <div class="card-title">Change Email</div>
+        <div class="form-group"><label class="form-label">Email Address</label><input id="acc-email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doChangeEmail()"></div>
+        <button class="btn btn-primary" id="acc-email-btn" onclick="doChangeEmail()" style="width:100%;justify-content:center">Update Email</button>
         <div id="acc-email-msg" style="margin-top:8px;font-size:12px;text-align:center;min-height:16px"></div>
       </div>
     </div>
