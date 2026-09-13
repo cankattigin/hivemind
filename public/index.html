@@ -379,6 +379,7 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
         <button class="nav-item" data-page="review" onclick="goPage('review')"><span class="ni">🔍</span> Review Queue <span class="nc" id="nc-review">0</span></button>
         <button class="nav-item" data-page="team" onclick="goPage('team')"><span class="ni">👥</span> Team</button>
         <button class="nav-item" data-page="reports" onclick="goPage('reports')"><span class="ni">📈</span> Reports</button>
+        <button class="nav-item" data-page="audit" onclick="goPage('audit')"><span class="ni">📋</span> Audit Trail</button>
         <button class="nav-item" onclick="showHub()"><span class="ni">🏠</span> Switch Project</button>
       </div>
     </div>
@@ -544,6 +545,43 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
           <button class="btn btn-primary" onclick="exportJSON()">⬇️ Export JSON</button>
         </div>
         <div id="reports-content"></div>
+      </div>
+
+      <div id="page-audit" class="page" style="display:none">
+        <div class="sec-hd">
+          <div class="sec-title">Audit Trail</div>
+        </div>
+        <div class="card" style="margin-bottom:14px;padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select id="audit-filter-user" onchange="renderAudit()" style="font-size:12px;padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text)">
+            <option value="">Tüm üyeler</option>
+          </select>
+          <select id="audit-filter-action" onchange="renderAudit()" style="font-size:12px;padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text)">
+            <option value="">Tüm eylemler</option>
+            <option value="created">Oluşturuldu</option>
+            <option value="status">Durum değişikliği</option>
+            <option value="environment">Ortam değişikliği</option>
+            <option value="task_assigned">Görev atandı</option>
+            <option value="task_status">Görev durumu</option>
+          </select>
+          <button class="btn" onclick="renderAudit()" style="font-size:12px;padding:4px 10px">Yenile</button>
+          <span id="audit-count" style="font-size:11px;color:var(--text3);margin-left:auto"></span>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="tbl" style="width:100%">
+            <thead><tr>
+              <th style="width:140px">Zaman</th>
+              <th style="width:120px">Kullanıcı</th>
+              <th style="width:110px">Eylem</th>
+              <th>Detay</th>
+              <th style="width:160px">Element</th>
+            </tr></thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
+          <div id="audit-empty" style="padding:40px;text-align:center;color:var(--text3);font-size:13px;display:none">Kayıt bulunamadı.</div>
+          <div id="audit-load-more" style="display:none;padding:12px;text-align:center">
+            <button class="btn" onclick="loadMoreAudit()">Daha fazla yükle</button>
+          </div>
+        </div>
       </div>
       <div id="page-team" class="page" style="display:none">
         <div class="sec-hd"><div class="sec-title">Team</div><div id="team-actions"></div></div>
@@ -1359,7 +1397,7 @@ function goPage(page, typeId) {
   document.querySelectorAll('.nav-item[data-page]').forEach(n=>{
     n.classList.toggle('active', n.dataset.page===page && (!typeId||n.dataset.typeid===typeId));
   });
-  const titles={dashboard:'Dashboard',entities:'All Elements',schema:'Schema Studio',tags:'Tags & Components',pipelines:'Pipeline Templates',team:'Team'};
+  const titles={dashboard:'Dashboard',entities:'All Elements',schema:'Schema Studio',tags:'Tags & Components',pipelines:'Pipeline Templates',team:'Team',audit:'Audit Trail'};
   document.getElementById('topbar-title').textContent = titles[page]||'';
   applyPermissionUI();
 
@@ -1386,6 +1424,7 @@ function goPage(page, typeId) {
   else if (page==='my-tasks') { show('page-my-tasks'); renderMyTasks(); }
   else if (page==='review') { show('page-review'); renderReviewQueue(); }
   else if (page==='reports') { show('page-reports'); renderReports(); }
+  else if (page==='audit') { show('page-audit'); initAudit(); }
 }
 
 function show(id) { document.getElementById(id).style.display='block'; }
@@ -2891,6 +2930,108 @@ async function submitReviewNote(taskId) {
   const note = document.getElementById('review-note').value;
   await api('PUT',`/api/projects/${S.project.id}/tasks/${taskId}`,{status:'in_progress', note});
   closeModal(); renderReviewQueue();
+}
+
+// ═══ AUDIT TRAIL ════════════════════════════════════════
+const AUDIT_LIMIT = 100;
+let _auditOffset = 0;
+let _auditTotal = 0;
+let _auditItems = [];
+
+const ACTION_TR = {
+  created: 'Oluşturuldu',
+  status: 'Durum',
+  environment: 'Ortam',
+  task_assigned: 'Görev Atandı',
+  task_status: 'Görev Durumu'
+};
+const ACTION_COLOR = {
+  created: 'var(--green)',
+  status: 'var(--accent2)',
+  environment: 'var(--amber)',
+  task_assigned: 'var(--accent)',
+  task_status: 'var(--text3)'
+};
+
+async function initAudit() {
+  _auditOffset = 0;
+  _auditItems = [];
+  // Ensure members are loaded for the filter dropdown
+  if (!window._teamMembers) {
+    const members = await api('GET', `/api/projects/${S.project.id}/members`);
+    window._teamMembers = members;
+  }
+  const sel = document.getElementById('audit-filter-user');
+  sel.innerHTML = '<option value="">Tüm üyeler</option>';
+  (window._teamMembers || []).forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.userId;
+    opt.textContent = m.displayName || m.username;
+    sel.appendChild(opt);
+  });
+  await renderAudit();
+}
+
+async function renderAudit() {
+  _auditOffset = 0;
+  _auditItems = [];
+  document.getElementById('audit-tbody').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3)">Yükleniyor…</td></tr>';
+  await fetchAuditPage();
+}
+
+async function fetchAuditPage() {
+  const userId = document.getElementById('audit-filter-user')?.value || '';
+  const action = document.getElementById('audit-filter-action')?.value || '';
+  let url = `/api/projects/${S.project.id}/activity?limit=${AUDIT_LIMIT}&offset=${_auditOffset}`;
+  if (userId) url += `&userId=${userId}`;
+  if (action) url += `&action=${action}`;
+  const res = await api('GET', url);
+  _auditTotal = res.total || 0;
+  _auditItems = _auditOffset === 0 ? (res.items || []) : [..._auditItems, ...(res.items || [])];
+  _auditOffset += (res.items || []).length;
+  drawAuditTable();
+}
+
+async function loadMoreAudit() {
+  await fetchAuditPage();
+}
+
+function drawAuditTable() {
+  const tbody = document.getElementById('audit-tbody');
+  const empty = document.getElementById('audit-empty');
+  const more = document.getElementById('audit-load-more');
+  const countEl = document.getElementById('audit-count');
+
+  countEl.textContent = `${_auditTotal} kayıt`;
+
+  if (_auditItems.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    more.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const entityMap = {};
+  S.entities.forEach(e => { entityMap[e.id] = e; });
+
+  tbody.innerHTML = _auditItems.map(a => {
+    const entity = entityMap[a.entity_id];
+    const entityCell = entity
+      ? `<span style="cursor:pointer;color:var(--accent2)" onclick="openEntityView('${entity.id}')">${escHtml(entity.name)}</span>`
+      : (a.entity_id ? '<span style="color:var(--text3)">Silindi</span>' : '—');
+    const actionLabel = ACTION_TR[a.action] || a.action;
+    const actionColor = ACTION_COLOR[a.action] || 'var(--text3)';
+    return `<tr>
+      <td style="color:var(--text3);font-size:11px;white-space:nowrap">${timeAgo(a.created_at)}</td>
+      <td style="font-size:12px">${escHtml(a.username || '—')}</td>
+      <td><span class="badge" style="background:color-mix(in srgb,${actionColor} 15%,var(--bg3));color:${actionColor};font-size:10px">${actionLabel}</span></td>
+      <td style="font-size:12px;color:var(--text2)">${escHtml(a.detail || '—')}</td>
+      <td style="font-size:12px">${entityCell}</td>
+    </tr>`;
+  }).join('');
+
+  more.style.display = _auditOffset < _auditTotal ? 'block' : 'none';
 }
 
 // ═══ REPORTS ════════════════════════════════════════════

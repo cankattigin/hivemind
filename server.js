@@ -862,10 +862,17 @@ app.delete('/api/comments/:id', auth, async (req, res) => {
 
 // ─── ACTIVITY ─────────────────────────────────────────
 app.get('/api/projects/:pid/activity', auth, async (req, res) => {
-  let query = supabase.from('activity').select('*').eq('project_id', req.params.pid).order('created_at', { ascending: false }).limit(50);
+  const limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
+  const offset = parseInt(req.query.offset || '0', 10);
+  let query = supabase.from('activity').select('*', { count: 'exact' })
+    .eq('project_id', req.params.pid)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
   if (req.query.entityId) query = query.eq('entity_id', req.query.entityId);
-  const { data } = await query;
-  res.json(data || []);
+  if (req.query.userId) query = query.eq('user_id', req.query.userId);
+  if (req.query.action) query = query.eq('action', req.query.action);
+  const { data, count } = await query;
+  res.json({ items: data || [], total: count || 0, offset, limit });
 });
 
 // ─── STATS ────────────────────────────────────────────
