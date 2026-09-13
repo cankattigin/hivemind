@@ -162,6 +162,15 @@ async function logActivity(projectId, userId, entityId, action, detail) {
   });
 }
 
+async function createNotification(recipientId, projectId, type, message, entityId, taskId) {
+  if (!recipientId) return;
+  await supabase.from('notifications').insert({
+    id: uuidv4(), user_id: recipientId, project_id: projectId,
+    type, message, entity_id: entityId || null, task_id: taskId || null,
+    read: false, created_at: new Date().toISOString()
+  });
+}
+
 // ─── AUTH ─────────────────────────────────────────────
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   const { username, password, accountType, email } = req.body;
@@ -730,6 +739,15 @@ app.post('/api/projects/:pid/tasks', auth, async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   const assignee = await getUser(req.body.assigneeId);
   logActivity(req.params.pid, req.session.userId, req.body.entityId, 'task_assigned', `${req.body.stepName} → ${getDisplayName(assignee)}`);
+  if (req.body.assigneeId && req.body.assigneeId !== req.session.userId) {
+    const { data: entity } = await supabase.from('entities').select('name').eq('id', req.body.entityId).single();
+    const assigner = user;
+    createNotification(
+      req.body.assigneeId, req.params.pid, 'task_assigned',
+      `${getDisplayName(assigner)} sana "${req.body.stepName}" görevini atadı — ${entity?.name || ''}`,
+      req.body.entityId, data.id
+    );
+  }
   res.json({ ...data, assigneeId: data.assignee_id, entityId: data.entity_id, stepId: data.step_id, stepName: data.step_name });
 });
 
@@ -738,8 +756,28 @@ app.put('/api/projects/:pid/tasks/:id', auth, async (req, res) => {
   const updates = { ...req.body, updated_at: new Date().toISOString() };
   const { data, error } = await supabase.from('tasks').update(updates).eq('id', req.params.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  if (old && req.body.status && req.body.status !== old.status)
+  if (old && req.body.status && req.body.status !== old.status) {
     logActivity(req.params.pid, req.session.userId, old.entity_id, 'task_status', `${old.step_name}: ${old.status} → ${req.body.status}`);
+    const STATUS_TR = { not_started: 'Başlanmadı', in_progress: 'Devam Ediyor', in_review: 'İncelemede', done: 'Tamamlandı', blocked: 'Engellendi' };
+    const { data: entity } = await supabase.from('entities').select('name').eq('id', old.entity_id).single();
+    const updater = await getUser(req.session.userId);
+    // notify assignee when someone else changes their task status
+    if (old.assignee_id && old.assignee_id !== req.session.userId) {
+      createNotification(
+        old.assignee_id, req.params.pid, 'task_status',
+        `${getDisplayName(updater)}: "${old.step_name}" durumu ${STATUS_TR[req.body.status] || req.body.status} olarak güncellendi — ${entity?.name || ''}`,
+        old.entity_id, old.id
+      );
+    }
+    // notify assigned_by when assignee moves task to in_review
+    if (req.body.status === 'in_review' && old.assigned_by && old.assigned_by !== req.session.userId) {
+      createNotification(
+        old.assigned_by, req.params.pid, 'task_review',
+        `${getDisplayName(updater)}: "${old.step_name}" görevi incelemeye gönderildi — ${entity?.name || ''}`,
+        old.entity_id, old.id
+      );
+    }
+  }
   res.json({ ...data, assigneeId: data.assignee_id, entityId: data.entity_id, stepId: data.step_id, stepName: data.step_name });
 });
 
@@ -766,6 +804,26 @@ app.get('/api/projects/:pid/review-queue', auth, async (req, res) => {
     assigneeIds.length ? supabase.from('users').select('id, username, display_name').in('id', assigneeIds) : Promise.resolve({ data: [] })
   ]);
   res.json((tasks || []).map(t => ({ ...t, assigneeId: t.assignee_id, entityId: t.entity_id, stepId: t.step_id, stepName: t.step_name, entityName: entities?.find(e => e.id === t.entity_id)?.name || 'Unknown', assigneeName: getDisplayName(users?.find(u => u.id === t.assignee_id)) || 'Unknown' })));
+});
+
+// ─── NOTIFICATIONS ────────────────────────────────────
+app.get('/api/notifications', auth, async (req, res) => {
+  const { data } = await supabase.from('notifications')
+    .select('*').eq('user_id', req.session.userId)
+    .order('created_at', { ascending: false }).limit(50);
+  res.json(data || []);
+});
+
+app.put('/api/notifications/read-all', auth, async (req, res) => {
+  await supabase.from('notifications').update({ read: true })
+    .eq('user_id', req.session.userId).eq('read', false);
+  res.json({ ok: true });
+});
+
+app.put('/api/notifications/:id/read', auth, async (req, res) => {
+  await supabase.from('notifications').update({ read: true })
+    .eq('id', req.params.id).eq('user_id', req.session.userId);
+  res.json({ ok: true });
 });
 
 // ─── COMMENTS ─────────────────────────────────────────

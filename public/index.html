@@ -46,6 +46,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;background:var(--bg2);flex-shrink:0}
 #topbar-title{font-size:15px;font-weight:600}
 #topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+#notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--text2);font-size:18px;padding:4px;display:flex;align-items:center;border-radius:6px}
+#notif-btn:hover{background:var(--bg3)}
+#notif-badge{position:absolute;top:0;right:0;background:var(--accent);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none}
+#notif-panel{position:absolute;top:52px;right:16px;width:340px;max-height:440px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.35);z-index:200;display:none;flex-direction:column}
+#notif-panel.open{display:flex}
+#notif-panel-header{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600}
+#notif-list{overflow-y:auto;flex:1}
+.notif-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;font-size:12px;line-height:1.45}
+.notif-item:hover{background:var(--bg3)}
+.notif-item.unread{background:color-mix(in srgb,var(--accent) 8%,var(--bg2))}
+.notif-item .notif-msg{color:var(--text);margin-bottom:3px}
+.notif-item .notif-time{color:var(--text3);font-size:11px}
 #content{flex:1;overflow-y:auto;padding:24px}
 .btn{padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-size:13px;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .btn:hover{background:var(--bg3)}
@@ -384,6 +396,16 @@ body.theme-girl .cat-pill:hover,body.theme-girl .cat-pill.on{border-color:#ff69b
     <div id="topbar">
       <div id="topbar-title">Dashboard</div>
       <div id="topbar-actions"></div>
+      <button id="notif-btn" onclick="toggleNotifPanel()" title="Bildirimler">
+        🔔<span id="notif-badge" hidden></span>
+      </button>
+      <div id="notif-panel">
+        <div id="notif-panel-header">
+          <span>Bildirimler</span>
+          <button class="btn" style="font-size:11px;padding:3px 8px" onclick="markAllNotifsRead()">Tümünü okundu işaretle</button>
+        </div>
+        <div id="notif-list"><div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Bildirim yok</div></div>
+      </div>
       <div id="rt-indicator" title="Realtime" style="display:none;align-items:center;gap:5px;font-size:11px;color:var(--text3);margin-right:4px">
         <span id="rt-dot" style="width:7px;height:7px;border-radius:50%;background:#6b7280;display:inline-block;flex-shrink:0"></span>
         <span id="rt-label">Live</span>
@@ -588,6 +610,80 @@ function cycleTheme() {
 }
 (function initTheme(){applyTheme(localStorage.getItem('hivemind-theme')||'dark');})();
 
+// ─── NOTIFICATIONS ─────────────────────────────────────
+let _notifOpen = false;
+
+function toggleNotifPanel() {
+  _notifOpen = !_notifOpen;
+  const panel = document.getElementById('notif-panel');
+  panel.classList.toggle('open', _notifOpen);
+  if (_notifOpen) loadNotifications();
+}
+
+function closeNotifPanel() {
+  _notifOpen = false;
+  document.getElementById('notif-panel').classList.remove('open');
+}
+
+async function loadNotifications() {
+  const notifs = await api('GET', '/api/notifications');
+  renderNotifications(notifs);
+}
+
+function renderNotifications(notifs) {
+  const list = document.getElementById('notif-list');
+  const badge = document.getElementById('notif-badge');
+  const unread = (notifs || []).filter(n => !n.read).length;
+  if (unread > 0) {
+    badge.textContent = unread > 99 ? '99+' : unread;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+  if (!notifs || notifs.length === 0) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Bildirim yok</div>';
+    return;
+  }
+  list.innerHTML = notifs.map(n => `
+    <div class="notif-item ${n.read ? '' : 'unread'}" onclick="clickNotif('${n.id}','${n.entity_id||''}','${n.project_id||''}')">
+      <div class="notif-msg">${escHtml(n.message)}</div>
+      <div class="notif-time">${timeAgo(n.created_at)}</div>
+    </div>
+  `).join('');
+}
+
+async function clickNotif(id, entityId, projectId) {
+  api('PUT', `/api/notifications/${id}/read`);
+  closeNotifPanel();
+  if (entityId) openEntityView(entityId);
+}
+
+async function markAllNotifsRead() {
+  await api('PUT', '/api/notifications/read-all');
+  document.getElementById('notif-badge').hidden = true;
+  document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'az önce';
+  if (m < 60) return `${m}dk önce`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}sa önce`;
+  return `${Math.floor(h / 24)}g önce`;
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.addEventListener('click', function(e) {
+  if (_notifOpen && !e.target.closest('#notif-panel') && !e.target.closest('#notif-btn')) {
+    closeNotifPanel();
+  }
+});
+
 const S = {
   user:null, project:null, membership:null,
   types:[], entities:[], tags:[], pipelines:{}, pipelineTemplates:[],
@@ -597,6 +693,7 @@ const S = {
 // ═══ REALTIME ════════════════════════════════════════════
 let _rtClient = null;
 let _rtChannel = null;
+let _rtNotifChannel = null;
 
 function mapEntity(raw) {
   return {
@@ -745,12 +842,35 @@ async function startRealtime(projectId) {
         if (ind) ind.style.display = 'flex';
         setRtStatus(status === 'SUBSCRIBED');
       });
+
+    // Notifications channel — user-scoped, separate from project channel
+    if (S.user?.id) {
+      _rtNotifChannel = _rtClient
+        .channel('notif-' + S.user.id)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'notifications',
+          filter: 'user_id=eq.' + S.user.id
+        }, function(payload) {
+          const n = payload.new;
+          if (!n) return;
+          const badge = document.getElementById('notif-badge');
+          const cur = parseInt(badge.textContent || '0', 10);
+          badge.textContent = cur + 1 > 99 ? '99+' : String(cur + 1);
+          badge.hidden = false;
+          if (_notifOpen) loadNotifications();
+        })
+        .subscribe();
+    }
   } catch(e) {
     console.warn('Realtime init failed:', e);
   }
 }
 
 function stopRealtime() {
+  if (_rtNotifChannel && _rtClient) {
+    _rtClient.removeChannel(_rtNotifChannel).catch(()=>{});
+  }
+  _rtNotifChannel = null;
   if (_rtChannel && _rtClient) {
     _rtClient.removeChannel(_rtChannel).catch(()=>{});
   }
@@ -1185,6 +1305,7 @@ async function enterProject(projectId) {
   await loadProjectData();
   // Start realtime subscription for this project
   startRealtime(projectId);
+  loadNotifications();
   // Non-directors land on My Tasks, directors on Dashboard
   if (S.user?.accountType === 'director' || isLeadOrDirector()) {
     goPage('dashboard');
